@@ -25,6 +25,16 @@ const CATEGORIES=[
 ];
 const SCREEN_LABELS={inventory:"Inventory",timeline:"Timeline",turnover:"Analytics",settings:"Settings",archive:"Archive"};
 
+/* ── AI enhance helper ── */
+async function enhanceText(text,screen,category,priority){
+  try{
+    const res=await fetch("/api/enhance",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({text,screen,category,priority})});
+    if(!res.ok)throw new Error("API error");
+    const data=await res.json();
+    return data.enhanced||text;
+  }catch(e){console.error("Enhance failed:",e);return null;}
+}
+
 /* ── Helpers ── */
 function timeAgo(ts){
   const d=Date.now()-ts;
@@ -99,14 +109,22 @@ function CommentForm({T,author,screen,onSubmit}){
   const [text,setText]=useState("");
   const [priority,setPriority]=useState("medium");
   const [category,setCategory]=useState("general");
+  const [enhancing,setEnhancing]=useState(false);
   const submit=()=>{
     if(!text.trim())return;
     onSubmit({author,text:text.trim(),screen,priority,category,timestamp:Date.now(),resolved:false,resolvedBy:null,resolvedAt:null});
     setText("");
   };
+  const enhance=async()=>{
+    if(!text.trim()||enhancing)return;
+    setEnhancing(true);
+    const result=await enhanceText(text,screen,category,priority);
+    if(result)setText(result);
+    setEnhancing(false);
+  };
   return(
     <div style={{display:"flex",flexDirection:"column",gap:10,flexShrink:0}}>
-      <textarea value={text} onChange={e=>setText(e.target.value)} placeholder="Leave feedback..."
+      <textarea value={text} onChange={e=>setText(e.target.value)} placeholder="Leave feedback (brief is fine — use AI to expand)..."
         onKeyDown={e=>{if(e.key==="Enter"&&e.ctrlKey)submit();}}
         style={{width:"100%",padding:10,borderRadius:10,border:`1px solid ${T.border}`,background:T.card2,color:T.text,fontSize:14,fontFamily:SA,resize:"vertical",minHeight:60,outline:"none"}}/>
       <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
@@ -127,9 +145,15 @@ function CommentForm({T,author,screen,onSubmit}){
           </div>
         ))}
       </div>
-      <button onClick={submit} style={{padding:"8px 20px",borderRadius:10,border:"none",background:T.teal,color:"#fff",fontWeight:700,fontSize:13,fontFamily:SA,cursor:"pointer",alignSelf:"flex-end",opacity:text.trim()?1:.4}}>
-        Submit (Ctrl+Enter)
-      </button>
+      <div style={{display:"flex",gap:8,justifyContent:"flex-end"}}>
+        <button onClick={enhance} disabled={!text.trim()||enhancing}
+          style={{padding:"8px 16px",borderRadius:10,border:`1px solid ${T.purple}44`,background:T.purple+"18",color:enhancing?T.muted:T.purple,fontWeight:700,fontSize:12,fontFamily:SA,cursor:enhancing?"wait":"pointer",opacity:text.trim()?1:.4}}>
+          {enhancing?"Enhancing...":"Enhance with AI"}
+        </button>
+        <button onClick={submit} style={{padding:"8px 20px",borderRadius:10,border:"none",background:T.teal,color:"#fff",fontWeight:700,fontSize:13,fontFamily:SA,cursor:"pointer",opacity:text.trim()?1:.4}}>
+          Submit (Ctrl+Enter)
+        </button>
+      </div>
     </div>
   );
 }
@@ -141,11 +165,19 @@ function PinPopover({T,x,y,author,screen,onSubmit,onCancel}){
   const [text,setText]=useState("");
   const [priority,setPriority]=useState("medium");
   const [category,setCategory]=useState("ux");
+  const [enhancing,setEnhancing]=useState(false);
   const ref_=useRef(null);
   useEffect(()=>{ref_.current?.focus();},[]);
   const submit=()=>{
     if(!text.trim())return;
     onSubmit({author,text:text.trim(),screen,xPct:x,yPct:y,priority,category,timestamp:Date.now(),resolved:false,resolvedBy:null,resolvedAt:null});
+  };
+  const enhance=async()=>{
+    if(!text.trim()||enhancing)return;
+    setEnhancing(true);
+    const result=await enhanceText(text,screen,category,priority);
+    if(result)setText(result);
+    setEnhancing(false);
   };
   // Position popover so it stays on screen
   const style={position:"absolute",left:`${Math.min(x,70)}%`,top:`${Math.min(y,60)}%`,zIndex:9995,width:300};
@@ -173,8 +205,12 @@ function PinPopover({T,x,y,author,screen,onSubmit,onCancel}){
           </div>
         ))}
       </div>
-      <div style={{display:"flex",gap:8,justifyContent:"flex-end"}}>
+      <div style={{display:"flex",gap:6,justifyContent:"flex-end"}}>
         <button onClick={onCancel} style={{padding:"5px 14px",borderRadius:8,border:`1px solid ${T.border}`,background:T.card2,color:T.muted,fontSize:12,fontWeight:600,fontFamily:SA,cursor:"pointer"}}>Cancel</button>
+        <button onClick={enhance} disabled={!text.trim()||enhancing}
+          style={{padding:"5px 12px",borderRadius:8,border:`1px solid ${T.purple}44`,background:T.purple+"18",color:enhancing?T.muted:T.purple,fontSize:11,fontWeight:700,fontFamily:SA,cursor:enhancing?"wait":"pointer",opacity:text.trim()?1:.4}}>
+          {enhancing?"...":"AI"}
+        </button>
         <button onClick={submit} style={{padding:"5px 14px",borderRadius:8,border:"none",background:T.teal,color:"#fff",fontSize:12,fontWeight:700,fontFamily:SA,cursor:"pointer",opacity:text.trim()?1:.4}}>Pin it</button>
       </div>
     </Cd>
