@@ -44,7 +44,7 @@ Be concise and professional. Do not use markdown. Write only the enhanced descri
 });
 
 // SPA fallback
-app.get("*", (req, res) => {
+app.get("/{*splat}", (req, res) => {
   res.sendFile(join(__dirname, "dist", "index.html"));
 });
 
