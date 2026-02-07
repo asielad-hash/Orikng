@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from "react";
+import FeedbackOverlay from "./Feedback";
 
 /* ══════════════════════════════════════════════════════════
    TRACKIMED — 16:9 Wall-Mount OR Dashboard v4
@@ -401,6 +402,7 @@ export default function App() {
         {screen==="settings"&&<SettingsScreen T={T}/>}
         {screen==="archive"&&<ArchiveScreen T={T}/>}
       </div>
+      <FeedbackOverlay T={T} screen={screen} onScreenChange={setScreen}/>
     </div>
   );
 }
