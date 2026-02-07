@@ -116,7 +116,7 @@ function SettingsScreen({T}){
   const cams=[{id:1,name:"Ceiling Main",ip:"192.168.1.101",res:"4K",fps:30,zone:"Full OR",ptz:true},{id:2,name:"Sterile Field",ip:"192.168.1.102",res:"4K",fps:30,zone:"Sterile",ptz:true},{id:3,name:"Back Table",ip:"192.168.1.103",res:"1080p",fps:30,zone:"Back Table",ptz:false},{id:4,name:"Waste & Door",ip:"192.168.1.104",res:"1080p",fps:24,zone:"Waste",ptz:false}];
   const mics=[{id:1,name:"Ceiling Array",mode:"Ambient+Voice"},{id:2,name:"Surgeon Lapel",mode:"Directional"}];
 
-  return(<div style={{display:"grid",gridTemplateColumns:"1fr 1fr 310px",gap:14,height:"100%",minHeight:0}}>
+  return(<div style={{display:"grid",gridTemplateColumns:"minmax(300px,420px) 1fr 280px",gap:14,height:"100%",minHeight:0}}>
     <div style={{display:"flex",flexDirection:"column",gap:8,minHeight:0,overflow:"hidden"}}>
       <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",flexShrink:0}}><Lb T={T}>📷 Cameras</Lb><P color={T.green} T={T} small>4/4</P></div>
       <div style={{flex:1,overflowY:"auto",minHeight:0}}>{cams.map(cam=>{const v=viewCam===cam.id;return(<div key={cam.id} style={{padding:12,marginBottom:10,borderRadius:14,background:T.card,border:`1px solid ${v?T.teal+"55":T.border}`}}>
