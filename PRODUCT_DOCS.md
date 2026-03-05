@@ -270,20 +270,55 @@ Orikng/
 - **Inline styles with theme objects**: Enables runtime theme switching without CSS reloads
 - **localStorage for author**: Persists reviewer name across sessions
 
-### 2.10 Setup
+### 2.10 Prerequisites
+- Node.js 20+
+- npm
+- Anthropic API key (optional — for AI feedback enhancement)
+
+### 2.11 Installation
 ```bash
+cd Orikng
 npm install
-# Development
-npm run dev                       # http://localhost:5173
-
-# Production build
-npm run build                     # Outputs to dist/
-
-# Server (for /api/enhance)
-ANTHROPIC_API_KEY=sk-... node server.js   # http://localhost:3000
 ```
 
-### 2.11 Deployment
+### 2.12 Running (Development)
+```bash
+cd Orikng
+npm run dev
+```
+
+**URL:** http://localhost:5173 (Vite dev server with hot reload)
+
+**Note:** Development mode serves the React app via Vite. The `/api/enhance` endpoint (Claude AI) is only available when running the Express server.
+
+### 2.13 Running (Production)
+```bash
+cd Orikng
+
+# 1. Build the frontend
+npm run build                     # Outputs to dist/
+
+# 2. Start the server
+export ANTHROPIC_API_KEY=sk-...   # Optional: enables AI feedback enhancement
+node server.js
+```
+
+**URL:** http://localhost:3000
+
+**The Express server:**
+- Serves the built React app from `dist/`
+- Provides `/api/enhance` for Claude-powered feedback enhancement
+- SPA fallback routing for client-side React routes
+
+### 2.14 npm Scripts
+| Script | Command | Description |
+|--------|---------|-------------|
+| `npm run dev` | `vite` | Dev server with hot reload (port 5173) |
+| `npm run build` | `vite build` | Production build → `dist/` |
+| `npm run preview` | `vite preview` | Preview production build locally |
+| `npm start` | `node server.js` | Production Express server (port 3000) |
+
+### 2.15 Deployment (Render.com)
 ```yaml
 # render.yaml
 services:
