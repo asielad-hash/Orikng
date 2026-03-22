@@ -1289,4 +1289,175 @@ import { eventBus } from './eventAPI';
 eventBus.connect('ws://backend:8765/events');
 ```
 
+---
+
+## 9. Kit Catalog (`kitCatalog.js`)
+
+All instrument inventories are derived from real surgical kit PDFs stored in
+`SurgicalInstruments/KITs Catalogue/`. The kit catalog contains 5 kits:
+
+| Kit Name | PDF File | Pieces | Typical Procedures |
+|---|---|---|---|
+| Sheba Basic Delicate Set | Basic_Delicate_Set.pdf | 58 | Hernia, Cholecystectomy |
+| Robotic Lap Tray | Robotic_Lap_Tray.pdf | 46 | Appendectomy, Lap procedures |
+| Sheba Mastectomy | Sheba_Mastectomy.pdf | 82 | Thyroidectomy |
+| Masectomy Tray | Masectomy_Tray.pdf | 126 | Mastectomy / Reconstruction |
+| Major Bone Set | Major_Bone_Set.pdf | 108 | Hemicolectomy, Orthopedic |
+
+### Kit Item Format
+
+Each kit item follows the same shape as `ITEMS` in procedureDB:
+
+```js
+{ id: "INS-001", n: "Richardson Retractor", cat: "instrument", init: 2, z: "mayo" }
+```
+
+| Field | Description |
+|---|---|
+| `id` | Auto-assigned: `INS-###`, `SPG-###`, `NDL-###`, `SHP-###`, `PAK-###` |
+| `n` | Instrument name from the PDF catalogue |
+| `cat` | Category: `instrument`, `sponge`, `needle`, `sharp`, `pack` |
+| `init` | Initial quantity (from PDF) |
+| `z` | Initial zone: `mayo` or `back_table` |
+
+### API
+
+```js
+import { getKitItems, getKitPdf } from './kitCatalog';
+
+const items = getKitItems("Masectomy Tray");  // Returns full kit, no trimming
+const pdf   = getKitPdf("Masectomy Tray");    // "/assets/Masectomy_Tray.pdf"
+```
+
+### Design Principle: Show Full Kit
+
+The full kit is always displayed in inventory — even instruments that are never
+used during the case. This demonstrates **low kit utilization** (typically 40-65%),
+which is a key metric for OR efficiency and cost optimization.
+
+---
+
+## 10. Archive Adapter (`archiveAdapter.js`)
+
+The archive adapter converts completed case data (`archiveDB.js`) into the **exact
+same format** consumed by the live dashboard. This means TlScreen, InvScreen, and
+TnScreen render identically for live and archived cases.
+
+### Adapter Input (Archive Case)
+
+```js
+{
+  kit: "Masectomy Tray",       // Maps to kit catalog
+  pieces: 126,                  // Total pieces in kit
+  zMayo: 50, zBack: 45,        // Final zone distribution
+  zPatient: 0, zDisposed: 31,
+  stateLog: [ ... ],           // Phase entries with durations
+  events: [ ... ],             // System event log
+}
+```
+
+### Adapter Output (procedureDB-compatible)
+
+```js
+{
+  phases,         // Same shape as PHASES — offsetStart computed from stateLog
+  systemEvents,   // Same shape as EVT — { at, t, s, e, tp }
+  items,          // Full kit from getKitItems() — no loc (computed by engine)
+  itemEvents,     // Same shape as ITEM_EVENTS — { at, type, note, frame }
+  totalElapsed,   // Total case duration in seconds
+}
+```
+
+### Event Generation
+
+The adapter generates per-item events that match the live format:
+
+1. **Baseline** at Initial Count phase offset — `{ type: "baseline", frame: cam2 }`
+2. **Movement events** spread across Procedure phase:
+   - `to_mayo` → cam2-sterile
+   - `to_back` → cam3-backtable
+   - `to_patient` → cam1-overhead
+   - `disposed` → cam4-waste
+3. **Gate phase events** — synthetic gate/ok events for count phases
+
+The same `useInventoryState(elapsed)` engine processes these events identically
+to live — no special archive code paths.
+
+### Consumption Modes
+
+| Mode | `elapsed` value | Effect |
+|---|---|---|
+| Summary | `totalElapsed` | All events visible — shows final state |
+| Replay | Ticks up from 0 | Events appear sequentially (same as live) |
+| Replay (paused) | Fixed value | Frozen at a specific point in time |
+| Phase jump | Set to `phase.offsetStart` | Jump to any phase instantly |
+
+---
+
+## 11. Unified Alert System
+
+Alerts are aggregated from multiple sources into a single count displayed in the
+header bar. All alert types use the same visual indicator.
+
+### Alert Sources
+
+| Type | Trigger | Color |
+|---|---|---|
+| `inventory` | Item drop, missing, unresolved count | Red |
+| `phase` | Active phase exceeds benchmark duration | Red |
+| `idle` | Idle phase exceeds 15-minute threshold | Red |
+
+### Alert Aggregation (in TlScreen)
+
+```js
+const alerts = [];
+// 1. Inventory alerts (from useInventoryState)
+tlAlertDetails.filter(a => !a.resolved).forEach(a =>
+  alerts.push({ type: "inventory", msg: `${a.name}: ${a.note}` }));
+// 2. Phase duration alerts
+if (phaseOverBenchmark)
+  alerts.push({ type: "phase", msg: `${phaseName} exceeded benchmark` });
+// 3. Future alert types added here
+const totalAlerts = alerts.length;
+```
+
+### Alert Display
+
+The unified alert count appears in the header metrics bar. Hovering shows a
+tooltip listing all active alerts with their type and description.
+
+---
+
+## 12. Camera & Microphone Mapping
+
+### Video Feeds
+
+| Camera | Location | Resolution | Covers |
+|---|---|---|---|
+| CAM-1 | Ceiling overhead | 4K/30fps | Patient zone, surgical field |
+| CAM-2 | Sterile field | 4K/30fps | Mayo stand, instrument handoffs |
+| CAM-3 | Back table | 1080/30fps | Back table instruments |
+| CAM-4 | Waste zone | 1080/24fps | Waste bucket, sharps container |
+
+### Event-to-Camera Mapping
+
+| Event Type | Camera | Video File |
+|---|---|---|
+| `baseline` (mayo) | CAM-2 | cam2-sterile.mp4 |
+| `baseline` (back table) | CAM-3 | cam3-backtable.mp4 |
+| `to_patient` | CAM-1 | cam1-overhead.mp4 |
+| `to_mayo` | CAM-2 | cam2-sterile.mp4 |
+| `to_back` | CAM-3 | cam3-backtable.mp4 |
+| `disposed` | CAM-4 | cam4-waste.mp4 |
+
+### Microphone Feeds
+
+| Mic | Location | Purpose |
+|---|---|---|
+| MIC-1 | Room boom | General room audio, speech-to-text |
+| MIC-2 | Anesthesia station | Anesthesia team communication |
+
+Both are displayed in the Media tab of the Timeline screen with live audio
+level meters.
+
 The UI code is identical in both cases — it only interacts with the EventBus.
