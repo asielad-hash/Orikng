@@ -23,7 +23,7 @@ const CATEGORIES=[
   {key:"content",label:"Content"},
   {key:"general",label:"General"}
 ];
-const SCREEN_LABELS={inventory:"Inventory",timeline:"Timeline",turnover:"Analytics",settings:"Settings",archive:"Archive"};
+const SCREEN_LABELS={inventory:"Inventory",timeline:"Timeline",turnover:"Case Analytics",settings:"Settings",archive:"Archive",or_analytics:"OR Analytics"};
 
 /* ── AI enhance helper ── */
 async function enhanceText(text,screen,category,priority){

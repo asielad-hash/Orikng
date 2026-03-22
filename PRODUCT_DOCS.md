@@ -1,13 +1,13 @@
 # Orikng (ORKing) — Product & Design Document
 
-**Version:** 1.0.0 | **Date:** 2026-03-04 | **Repo:** https://github.com/asielad-hash/Orikng
+**Version:** 2.0.0 | **Date:** 2026-03-22 | **Repo:** https://github.com/asielad-hash/Orikng
 
 ---
 
 ## 1. Product Requirements (PRD)
 
 ### 1.1 Purpose
-Interactive OR (Operating Room) dashboard mockup and design review tool for TrackiMed. Simulates a wall-mounted 16:9 display showing real-time surgical item tracking, procedure timeline, analytics, device settings, and case archives. Includes an integrated feedback/annotation system for collaborative design iteration.
+Event-driven OR (Operating Room) intelligence dashboard for TrackiMed. Displays real-time surgical item tracking, procedure timeline, analytics, device settings, and case archives on a wall-mounted 16:9 display. All state changes (phase transitions, inventory movements, alerts) flow through a unified EventBus — currently driven by a MockAlgorithm, designed to be replaced by real camera/vision backend via WebSocket. Includes an integrated feedback/annotation system for collaborative design iteration.
 
 ### 1.2 Target Users
 - Product designers reviewing OR dashboard UI/UX
@@ -89,32 +89,42 @@ Browser (React SPA)
 ```
 Orikng/
   src/
-    App.jsx                     Main 5-tab dashboard
-    Feedback.jsx                Feedback overlay system (607 lines)
+    App.jsx                     Main dashboard (Inventory, Timeline, Analytics screens)
+    procedureDB.js              Procedure data: phases, items, events, transcription
+    eventAPI.js                 EventBus, event types (EVT), zones, createEvent()
+    mockAlgorithm.js            Mock backend — converts procedureDB → EventBus events
+    archiveDB.js                Archive case data
+    Feedback.jsx                Feedback overlay system
+    Login.jsx                   Login screen with @trackimed.com validation
     firebase.js                 Firebase Realtime DB config
     main.jsx                    React entry point
-  trackimed-or-mockup.jsx       Extended mockup variant (45 KB)
   server.js                     Express backend with Claude API
   index.html                    HTML entry point
   vite.config.js                Vite build configuration
   package.json                  Dependencies
   render.yaml                   Render deployment config
+  public/videos/                Surgical video files (4 camera feeds)
+  public/assets/                TrackiMed branding, tray PDFs
 ```
 
 ### 2.4 Dashboard Screens
 
 #### Inventory
-- **25 surgical items** across 5 categories: Sponges, Needles, Sharps, Instruments, Packs
-- Per-item: Baseline count, In-Field count, Disposed count
-- **4 OR zones**: Mayo, Sterile Field, Back Table, Waste
-- Zone map visualization with staff positions (SRG, AST, SCR, CIR)
-- Interactive counting mode with progress animation
-- Live event feed
+- **66 surgical item types / 169 pieces** across 5 categories: Sponges, Needles, Sharps, Instruments, Packs
+- Per-item: Baseline count, current zone location, event history with video captures
+- **4 OR zones**: Mayo (green), Back Table (blue), Patient, Disposed
+- Zone map visualization with origin-colored counts (green = mayo origin, blue = back table origin) and baseline reference
+- **Counts panel**: Shows all safety gate count results (Initial Count, Pre-Close, Count Resolution, Final Count) with status indicators (pending/in-progress/balanced)
+- Staff positions (SRG, AST, SCR, CIR) on zone map
+- Live event feed with phase-colored entries
 
 #### Timeline
-- **15 procedure states**: System Ready → OR Setup → Initial Count → Patient In → Anesthesia → Time Out → Procedure → Pre-Close Count → Count Resolution → Surgeon Decision → Closure → Final Count → Emergence → Patient Out → Turnover
+- **15 procedure phases**: OR Setup → Initial Count → Patient In → Anesthesia → Time Out → Procedure → Pre-Close Count → Count Resolution → Surgeon Decision → Closure → Final Count → Emergence → Patient Out → Turnover → Idle
 - **4 safety gates**: Initial Count, Time Out, Pre-Close Count, Final Count
-- Phase duration tracking with min-max benchmarks
+- **Event-driven phase transitions**: Active phase is driven by `phase.start` events from EventBus (not hardcoded time offsets). MockAlgorithm emits these on schedule; real backend will emit them via WebSocket when camera algo detects phase changes.
+- Phase duration tracking with benchmarks — active phase turns red with warning when exceeding benchmark
+- **Idle phase**: Final state after turnover. Benchmark = 15 min. Room status changes to "AVAILABLE". Alert raised if idle > 15 min.
+- **Unified alert system**: Aggregates inventory alerts + phase duration alerts. Count turns red when > 0. Tooltip shows all active alerts grouped by type. Phase alerts auto-clear on next phase transition.
 - Elapsed time, staff count, items tracked, alerts count
 
 #### Analytics
@@ -201,31 +211,131 @@ Orikng/
 - Modifications log with multi-filter table
 - Markdown export and clipboard copy
 
-### 2.7 Data Models
+### 2.7 Event Architecture
 
-**Surgical Item:**
+All state changes flow through a central **EventBus** (`eventAPI.js`). The UI subscribes to events; the backend (mock or real) emits them.
+
+#### Event Types (EVT constants)
+```
+Phase lifecycle:
+  phase.start          — Phase transition (carries phaseIndex, label, benchmark)
+  phase.complete       — Phase completed
+
+Inventory tracking:
+  inventory.baseline   — Initial item placement at count
+  inventory.move       — Item moved between zones
+  inventory.dispose    — Item disposed/discarded
+  inventory.alert      — Item drop/loss detected
+  inventory.recover    — Alert resolved, item recovered
+  inventory.open       — Pack/tray opened
+
+Count verification:
+  count.start          — Count phase initiated
+  count.zone           — Zone count reported
+  count.result         — Count result (balanced/unbalanced)
+  count.resolve        — Count discrepancy resolved
+
+Audio processing:
+  audio.transcript     — Speech-to-text result
+  audio.keyword        — Safety keyword detected
+
+Vision / camera:
+  vision.detect        — Object detection result
+  vision.track         — Object tracking update
+  vision.frame         — Frame reference with annotations
+
+System-level:
+  system.boot          — System status / info
+  system.camera        — Camera status change
+  system.mic           — Microphone status change
+  system.compliance    — Compliance check result
+  system.ebl           — Estimated blood loss update
+  system.staff         — Staff presence change
+```
+
+#### Event Envelope
+```json
+{
+  "id": "evt-1711234567890-42",
+  "ts": 1711234567890,
+  "source": "CAM-1",
+  "type": "phase.start",
+  "data": {
+    "phaseIndex": 5,
+    "label": "Procedure",
+    "benchmark": 90,
+    "confidence": 0.94
+  }
+}
+```
+
+#### Event Flow
+```
+MockAlgorithm (demo)           Real Backend (production)
+  |                              |
+  | reads procedureDB            | camera/mic processing
+  | schedules events             | WebSocket connection
+  |                              |
+  +------> EventBus <-----------+
+              |
+              | dispatches to subscribers
+              |
+    +---------+---------+
+    |         |         |
+  App.jsx  TlScreen  InvScreen
+  (phase)  (timeline) (inventory)
+```
+
+- **MockAlgorithm** (`mockAlgorithm.js`): Reads `procedureDB.js` and emits events at real-time pace. Past events are replayed as `_historical`. Future events are scheduled via `setTimeout`.
+- **Real backend**: Connects via `eventBus.connect(wsUrl)`. WebSocket `onmessage` parses JSON and calls `eventBus.emit()`. Same event types — UI works unchanged.
+- **Phase transitions**: `App.jsx` subscribes to `phase.start` events. When received, updates active phase state (`setAs(phaseIndex)`). Historical events are skipped (handled by initial elapsed-time calculation on load).
+
+#### Alert System
+Alerts are aggregated from multiple sources into a unified count:
+1. **Inventory alerts** — unresolved item drops/losses from `useInventoryState()`
+2. **Phase duration alerts** — active phase exceeding its benchmark (auto-clears on next phase)
+3. *(extensible — future types added to the `alerts[]` array)*
+
+### 2.8 Data Models
+
+**Surgical Item (procedureDB.js → ITEMS):**
 ```json
 {
   "id": "SPG-001",
   "name": "Lap Sponge 18×18",
-  "category": "sponge",
+  "cat": "sponge",
   "init": 10,
-  "f": 8,
-  "d": 2,
-  "zone": "sterile"
+  "loc": { "m": 10, "b": 0, "p": 0, "d": 0 },
+  "zone": "mayo"
 }
 ```
+Fields: `cat` = category, `init` = baseline count, `loc` = current location counts (m=mayo, b=back table, p=patient, d=disposed), `zone` = origin zone.
 
-**Procedure State:**
+**Procedure Phase (procedureDB.js → PHASES):**
 ```json
 {
-  "id": 0,
-  "label": "System Ready",
-  "short": "SYS",
-  "checkKey": "teal",
-  "gateRequired": false
+  "id": 5,
+  "label": "Procedure",
+  "short": "PROC",
+  "colorKey": "green",
+  "gate": false,
+  "offsetStart": 0,
+  "duration": 90,
+  "benchmark": 90
 }
 ```
+15 phases (0–14): OR Setup → Initial Count → Patient In → Anesthesia → Time Out → Procedure → Pre-Close Count → Count Resolution → Surgeon Decision → Closure → Final Count → Emergence → Patient Out → Turnover → Idle. Gate phases require verification. `benchmark` is the target duration in minutes (Idle benchmark = 15 min, 0 is optimal).
+
+**Item Event (procedureDB.js → ITEM_EVENTS):**
+```json
+{
+  "at": 300,
+  "type": "to_patient",
+  "note": "Raytec sponge passed to surgeon",
+  "frame": "/videos/cam1.mp4#t=305"
+}
+```
+Types: `baseline`, `to_patient`, `to_mayo`, `to_back`, `disposed`, `alert`, `resolved`, `opened`.
 
 **Archive Operation:**
 ```json
@@ -246,7 +356,7 @@ Orikng/
 }
 ```
 
-### 2.8 Theme System
+### 2.9 Theme System
 
 | Token | Dark | Light |
 |-------|------|-------|
@@ -261,27 +371,31 @@ Orikng/
 
 **Typography:** DM Sans (display), JetBrains Mono (metrics/code)
 
-### 2.9 Key Design Decisions
+### 2.10 Key Design Decisions
+- **Event-driven architecture**: All state changes (phases, inventory, alerts) flow through EventBus. UI subscribes, backend emits. MockAlgorithm swappable for real camera backend without UI changes.
+- **Phase transitions via events**: Active phase is `useState` updated by `phase.start` events, not derived from elapsed time. Enables real-time camera algo to drive phase changes.
+- **Unified alert system**: Aggregates inventory, phase duration, and future alert types into a single count with typed entries. Extensible via `alerts[]` array.
+- **Origin-colored zone counts**: OR Zone Map shows item counts colored by origin zone (green=mayo, blue=back table) so staff can see where items came from at a glance.
 - **No UI library**: All components are custom CSS-in-JS for full design control
-- **Canvas video simulation**: Settings screen uses canvas-based feed (not real video)
+- **Real video feeds**: 4 camera feeds use actual surgical video files, not canvas simulation
 - **Firebase Realtime DB**: Enables multi-reviewer collaboration without custom backend
 - **Claude Haiku**: Fast, low-cost AI enhancement for feedback text
 - **16:9 aspect ratio**: Optimized for wall-mounted OR displays
 - **Inline styles with theme objects**: Enables runtime theme switching without CSS reloads
-- **localStorage for author**: Persists reviewer name across sessions
+- **Login with session persistence**: @trackimed.com email validation, localStorage session
 
-### 2.10 Prerequisites
+### 2.11 Prerequisites
 - Node.js 20+
 - npm
 - Anthropic API key (optional — for AI feedback enhancement)
 
-### 2.11 Installation
+### 2.12 Installation
 ```bash
 cd Orikng
 npm install
 ```
 
-### 2.12 Running (Development)
+### 2.13 Running (Development)
 ```bash
 cd Orikng
 npm run dev
@@ -291,7 +405,7 @@ npm run dev
 
 **Note:** Development mode serves the React app via Vite. The `/api/enhance` endpoint (Claude AI) is only available when running the Express server.
 
-### 2.13 Running (Production)
+### 2.14 Running (Production)
 ```bash
 cd Orikng
 
@@ -310,7 +424,7 @@ node server.js
 - Provides `/api/enhance` for Claude-powered feedback enhancement
 - SPA fallback routing for client-side React routes
 
-### 2.14 npm Scripts
+### 2.15 npm Scripts
 | Script | Command | Description |
 |--------|---------|-------------|
 | `npm run dev` | `vite` | Dev server with hot reload (port 5173) |
@@ -318,7 +432,7 @@ node server.js
 | `npm run preview` | `vite preview` | Preview production build locally |
 | `npm start` | `node server.js` | Production Express server (port 3000) |
 
-### 2.15 Deployment (Render.com)
+### 2.16 Deployment (Render.com)
 ```yaml
 # render.yaml
 services:
