@@ -163,7 +163,7 @@ export const ITEM_EVENTS = {
   "SPG-001": [
     { at: -1099, type: "baseline", note: "Initial count: 5 units on mayo stand", frame: "/videos/cam2-sterile.mp4#t=2" },
     { at: 540,   type: "to_patient", note: "1× Lap Sponge → patient (packing surgical site)", frame: "/videos/cam1-overhead.mp4#t=4" },
-    { at: 720,   type: "to_mayo", note: "1× Lap Sponge ← returned to mayo (soaked, for disposal)", frame: null },
+    { at: 720,   type: "to_mayo", note: "1× Lap Sponge ← returned to mayo (soaked, for disposal)", frame: "/videos/cam2-sterile.mp4#t=3" },
     { at: 780,   type: "disposed", note: "1× Lap Sponge → waste bucket (CAM-4 confirmed)", frame: "/videos/cam4-waste.mp4#t=5" },
     { at: 1740,  type: "disposed", note: "1× Lap Sponge → waste bucket (blood-soaked)", frame: "/videos/cam4-waste.mp4#t=12" },
   ],
@@ -175,7 +175,7 @@ export const ITEM_EVENTS = {
     { at: 1140,  type: "disposed", note: "1× 4×4 Gauze → waste", frame: "/videos/cam4-waste.mp4#t=8" },
     { at: 1380,  type: "disposed", note: "1× 4×4 Gauze → waste", frame: "/videos/cam4-waste.mp4#t=10" },
     { at: 2340,  type: "disposed", note: "1× 4×4 Gauze → waste", frame: "/videos/cam4-waste.mp4#t=15" },
-    { at: 5340,  type: "to_mayo", note: "1× Gauze Pad ← returned to mayo (pre-close)", frame: null },
+    { at: 5340,  type: "to_mayo", note: "1× Gauze Pad ← returned to mayo (pre-close)", frame: "/videos/cam2-sterile.mp4#t=4" },
   ],
   "SPG-003": [
     { at: -1099, type: "baseline", note: "Initial count: 5 units on mayo stand", frame: "/videos/cam2-sterile.mp4#t=3" },
@@ -183,18 +183,18 @@ export const ITEM_EVENTS = {
     { at: 1560,  type: "alert", note: "Raytec drop detected — floor zone, CAM-1", frame: "/videos/cam1-overhead.mp4#t=6" },
     { at: 1560,  type: "resolved", note: "Raytec recovered → returned to mayo stand", frame: "/videos/cam2-sterile.mp4#t=7" },
     { at: 2700,  type: "disposed", note: "1× Raytec → waste", frame: "/videos/cam4-waste.mp4#t=18" },
-    { at: 5350,  type: "to_mayo", note: "1× Raytec ← returned to mayo (pre-close count)", frame: null },
+    { at: 5350,  type: "to_mayo", note: "1× Raytec ← returned to mayo (pre-close count)", frame: "/videos/cam2-sterile.mp4#t=5" },
   ],
   // NEEDLES
   "NDL-001": [
     { at: -1099, type: "baseline", note: "Initial count: 4 units on mayo stand", frame: "/videos/cam2-sterile.mp4#t=5" },
     { at: 1860,  type: "to_patient", note: "1× CT-1 Needle loaded on needleholder → suturing", frame: "/videos/cam1-overhead.mp4#t=9" },
-    { at: 2100,  type: "to_mayo", note: "1× CT-1 Needle ← returned to mayo (suture complete)", frame: null },
+    { at: 2100,  type: "to_mayo", note: "1× CT-1 Needle ← returned to mayo (suture complete)", frame: "/videos/cam2-sterile.mp4#t=6" },
   ],
   "NDL-002": [
     { at: -1099, type: "baseline", note: "Initial count: 3 units on mayo stand", frame: "/videos/cam2-sterile.mp4#t=5" },
     { at: 2460,  type: "to_patient", note: "1× SH Needle loaded → deep tissue suturing", frame: "/videos/cam1-overhead.mp4#t=11" },
-    { at: 2700,  type: "to_mayo", note: "1× SH Needle ← returned to mayo (suture complete)", frame: null },
+    { at: 2700,  type: "to_mayo", note: "1× SH Needle ← returned to mayo (suture complete)", frame: "/videos/cam2-sterile.mp4#t=7" },
     { at: 3360,  type: "disposed", note: "1× Suture Needle SH → sharps container", frame: "/videos/cam4-waste.mp4#t=20" },
   ],
   "NDL-003": [
@@ -209,7 +209,7 @@ export const ITEM_EVENTS = {
   "SHP-001": [
     { at: -1099, type: "baseline", note: "Initial count: 2 units on mayo stand", frame: "/videos/cam2-sterile.mp4#t=7" },
     { at: 0,     type: "to_patient", note: "1× Blade #10 mounted on handle → incision", frame: "/videos/cam1-overhead.mp4#t=2" },
-    { at: 3900,  type: "to_mayo", note: "1× Blade #10 ← removed from handle, returned to mayo", frame: null },
+    { at: 3900,  type: "to_mayo", note: "1× Blade #10 ← removed from handle, returned to mayo", frame: "/videos/cam2-sterile.mp4#t=8" },
     { at: 3960,  type: "disposed", note: "1× Blade #10 → sharps container", frame: "/videos/cam4-waste.mp4#t=28" },
   ],
   "SHP-002": [{ at: -1099, type: "baseline", note: "Initial count: 1 unit on mayo stand", frame: "/videos/cam2-sterile.mp4#t=7" }],
@@ -217,7 +217,7 @@ export const ITEM_EVENTS = {
   "SHP-004": [
     { at: -1099, type: "baseline", note: "Initial count: 3 units on mayo stand", frame: "/videos/cam2-sterile.mp4#t=8" },
     { at: 180,   type: "to_patient", note: "1× Trocar 5mm → patient (port placement)", frame: "/videos/cam1-overhead.mp4#t=3" },
-    { at: 5320,  type: "to_mayo", note: "1× Trocar 5mm ← returned to mayo (port removed)", frame: null },
+    { at: 5320,  type: "to_mayo", note: "1× Trocar 5mm ← returned to mayo (port removed)", frame: "/videos/cam2-sterile.mp4#t=9" },
   ],
   // PACKS
   "PAK-001": [
@@ -233,36 +233,36 @@ export const ITEM_EVENTS = {
   "INS-001": [
     { at: -1099, type: "baseline", note: "Initial: 2× Richardson Retractor on mayo stand", frame: "/videos/cam2-sterile.mp4#t=2" },
     { at: 120,   type: "to_patient", note: "1× Richardson Retractor → patient (holding wound edges)", frame: "/videos/cam1-overhead.mp4#t=3" },
-    { at: 5200,  type: "to_mayo", note: "1× Richardson Retractor ← returned to mayo (pre-close)", frame: null },
+    { at: 5200,  type: "to_mayo", note: "1× Richardson Retractor ← returned to mayo (pre-close)", frame: "/videos/cam2-sterile.mp4#t=10" },
   ],
   "INS-006": [
     { at: -1099, type: "baseline", note: "Initial: 2× Freeman Breast Retractor on mayo stand", frame: "/videos/cam2-sterile.mp4#t=3" },
     { at: 420,   type: "to_patient", note: "1× Freeman Retractor → patient (breast tissue retraction)", frame: "/videos/cam1-overhead.mp4#t=4" },
-    { at: 5220,  type: "to_mayo", note: "1× Freeman Retractor ← returned to mayo (pre-close)", frame: null },
+    { at: 5220,  type: "to_mayo", note: "1× Freeman Retractor ← returned to mayo (pre-close)", frame: "/videos/cam2-sterile.mp4#t=11" },
   ],
   "INS-010": [
     { at: -1099, type: "baseline", note: "Initial: 2× DeBakey Forceps on mayo stand", frame: "/videos/cam2-sterile.mp4#t=4" },
     { at: 240,   type: "to_patient", note: "1× DeBakey Forceps → patient (grasping tissue)", frame: "/videos/cam1-overhead.mp4#t=3" },
     { at: 960,   type: "to_mayo", note: "1× DeBakey Forceps ← returned to mayo stand", frame: "/videos/cam2-sterile.mp4#t=5" },
     { at: 1980,  type: "to_patient", note: "1× DeBakey Forceps → patient (vascular dissection)", frame: "/videos/cam1-overhead.mp4#t=10" },
-    { at: 5240,  type: "to_mayo", note: "1× DeBakey Forceps ← returned to mayo (pre-close)", frame: null },
+    { at: 5240,  type: "to_mayo", note: "1× DeBakey Forceps ← returned to mayo (pre-close)", frame: "/videos/cam2-sterile.mp4#t=12" },
   ],
   "INS-020": [
     { at: -1099, type: "baseline", note: "Initial: 2× Knife Handle #3 on mayo stand", frame: "/videos/cam2-sterile.mp4#t=5" },
     { at: 0,     type: "to_patient", note: "1× Knife Handle #3 with Blade #10 → patient (skin incision)", frame: "/videos/cam1-overhead.mp4#t=2" },
-    { at: 5260,  type: "to_mayo", note: "1× Knife Handle #3 ← returned to mayo (pre-close)", frame: null },
+    { at: 5260,  type: "to_mayo", note: "1× Knife Handle #3 ← returned to mayo (pre-close)", frame: "/videos/cam2-sterile.mp4#t=13" },
   ],
   "INS-023": [
     { at: -1099, type: "baseline", note: "Initial: 6× Mosquito Clamp on mayo stand", frame: "/videos/cam2-sterile.mp4#t=6" },
     { at: 540,   type: "to_patient", note: "1× Mosquito Clamp → patient (clamping vessel)", frame: "/videos/cam1-overhead.mp4#t=4" },
     { at: 900,   type: "to_mayo", note: "1× Mosquito Clamp ← returned to mayo (vessel ligated)", frame: "/videos/cam2-sterile.mp4#t=5" },
     { at: 2220,  type: "to_patient", note: "1× Mosquito Clamp → patient (hemostasis)", frame: "/videos/cam1-overhead.mp4#t=11" },
-    { at: 5280,  type: "to_mayo", note: "1× Mosquito Clamp ← returned to mayo (hemostasis complete)", frame: null },
+    { at: 5280,  type: "to_mayo", note: "1× Mosquito Clamp ← returned to mayo (hemostasis complete)", frame: "/videos/cam2-sterile.mp4#t=14" },
   ],
   "INS-028": [
     { at: -1099, type: "baseline", note: "Initial: 6× Lahey Clamp on mayo stand", frame: "/videos/cam2-sterile.mp4#t=7" },
     { at: 1380,  type: "to_patient", note: "1× Lahey Clamp → patient (clamping tissue pedicle)", frame: "/videos/cam1-overhead.mp4#t=7" },
-    { at: 5300,  type: "to_mayo", note: "1× Lahey Clamp ← returned to mayo (pedicle ligated)", frame: null },
+    { at: 5300,  type: "to_mayo", note: "1× Lahey Clamp ← returned to mayo (pedicle ligated)", frame: "/videos/cam2-sterile.mp4#t=15" },
   ],
   // Instruments used and RETURNED (currently all on mayo)
   "INS-011": [
@@ -324,12 +324,12 @@ export const ITEM_EVENTS = {
   "INS-024": [
     { at: -1099, type: "baseline", note: "Initial: 6× Crile Curved Clamp on back table", frame: "/videos/cam3-backtable.mp4#t=4" },
     { at: 660,   type: "to_mayo", note: "1× Crile Curved Clamp → moved to mayo (hemostasis)", frame: "/videos/cam2-sterile.mp4#t=5" },
-    { at: 660,   type: "to_mayo", note: "1× Crile Curved Clamp → moved to mayo (hemostasis)", frame: null },
+    { at: 660,   type: "to_mayo", note: "1× Crile Curved Clamp → moved to mayo (hemostasis)", frame: "/videos/cam2-sterile.mp4#t=16" },
   ],
   "INS-026": [
     { at: -1099, type: "baseline", note: "Initial: 6× Allis Clamp on back table", frame: "/videos/cam3-backtable.mp4#t=5" },
     { at: 960,   type: "to_mayo", note: "1× Allis Clamp → moved to mayo (tissue retraction)", frame: "/videos/cam2-sterile.mp4#t=5" },
-    { at: 960,   type: "to_mayo", note: "1× Allis Clamp → moved to mayo (tissue retraction)", frame: null },
+    { at: 960,   type: "to_mayo", note: "1× Allis Clamp → moved to mayo (tissue retraction)", frame: "/videos/cam2-sterile.mp4#t=2" },
   ],
   "INS-040": [
     { at: -1099, type: "baseline", note: "Initial: 4× Olsen Hegar Needleholder/Scissors on back table", frame: "/videos/cam3-backtable.mp4#t=6" },
@@ -354,93 +354,93 @@ export const ITEM_EVENTS = {
 
   // MAYO instruments — baseline only (no movement, stay on mayo)
   "INS-002": [
-    { at: -1099, type: "baseline", note: "Initial: 2× Kelly Retractor 51×64mm on mayo stand", frame: null },
+    { at: -1099, type: "baseline", note: "Initial: 2× Kelly Retractor 51×64mm on mayo stand", frame: "/videos/cam2-sterile.mp4#t=7" },
   ],
   "INS-012": [
-    { at: -1099, type: "baseline", note: "Initial: 2× Tissue Forceps on mayo stand", frame: null },
+    { at: -1099, type: "baseline", note: "Initial: 2× Tissue Forceps on mayo stand", frame: "/videos/cam2-sterile.mp4#t=8" },
   ],
   "INS-016": [
-    { at: -1099, type: "baseline", note: "Initial: 1× Semken Bipolar Forceps on mayo stand", frame: null },
+    { at: -1099, type: "baseline", note: "Initial: 1× Semken Bipolar Forceps on mayo stand", frame: "/videos/cam2-sterile.mp4#t=9" },
   ],
   "INS-017": [
-    { at: -1099, type: "baseline", note: "Initial: 2× Brown Adson Tissue Forceps on mayo stand", frame: null },
+    { at: -1099, type: "baseline", note: "Initial: 2× Brown Adson Tissue Forceps on mayo stand", frame: "/videos/cam2-sterile.mp4#t=10" },
   ],
   "INS-021": [
-    { at: -1099, type: "baseline", note: "Initial: 1× Knife Handle #7 on mayo stand", frame: null },
+    { at: -1099, type: "baseline", note: "Initial: 1× Knife Handle #7 on mayo stand", frame: "/videos/cam2-sterile.mp4#t=1" },
   ],
 
   // BACK TABLE instruments — baseline only (no movement)
   "INS-003": [
-    { at: -1080, type: "baseline", note: "Initial: 2× Kelly Retractor 37×51mm on back table", frame: null },
+    { at: -1080, type: "baseline", note: "Initial: 2× Kelly Retractor 37×51mm on back table", frame: "/videos/cam3-backtable.mp4#t=10" },
   ],
   "INS-005": [
-    { at: -1080, type: "baseline", note: "Initial: 2× Richardson Appendiceal Retractor on back table", frame: null },
+    { at: -1080, type: "baseline", note: "Initial: 2× Richardson Appendiceal Retractor on back table", frame: "/videos/cam3-backtable.mp4#t=11" },
   ],
   "INS-008": [
-    { at: -1080, type: "baseline", note: "Initial: 2× Mannerfelt Retractor on back table", frame: null },
+    { at: -1080, type: "baseline", note: "Initial: 2× Mannerfelt Retractor on back table", frame: "/videos/cam3-backtable.mp4#t=12" },
   ],
   "INS-013": [
-    { at: -1080, type: "baseline", note: "Initial: 2× Dressing Forceps on back table", frame: null },
+    { at: -1080, type: "baseline", note: "Initial: 2× Dressing Forceps on back table", frame: "/videos/cam3-backtable.mp4#t=1" },
   ],
   "INS-019": [
-    { at: -1080, type: "baseline", note: "Initial: 2× Rees Monopolar Forceps on back table", frame: null },
+    { at: -1080, type: "baseline", note: "Initial: 2× Rees Monopolar Forceps on back table", frame: "/videos/cam3-backtable.mp4#t=2" },
   ],
   "INS-025": [
-    { at: -1080, type: "baseline", note: "Initial: 4× Crile Straight Clamp on back table", frame: null },
+    { at: -1080, type: "baseline", note: "Initial: 4× Crile Straight Clamp on back table", frame: "/videos/cam3-backtable.mp4#t=3" },
   ],
   "INS-027": [
-    { at: -1080, type: "baseline", note: "Initial: 4× Allis Tissue Clamp 8\" on back table", frame: null },
+    { at: -1080, type: "baseline", note: "Initial: 4× Allis Tissue Clamp 8\" on back table", frame: "/videos/cam3-backtable.mp4#t=4" },
   ],
   "INS-030": [
-    { at: -1080, type: "baseline", note: "Initial: 2× Ochsner Straight Clamp on back table", frame: null },
+    { at: -1080, type: "baseline", note: "Initial: 2× Ochsner Straight Clamp on back table", frame: "/videos/cam3-backtable.mp4#t=5" },
   ],
   "INS-033": [
-    { at: -1080, type: "baseline", note: "Initial: 2× Tonsil Clamp on back table", frame: null },
+    { at: -1080, type: "baseline", note: "Initial: 2× Tonsil Clamp on back table", frame: "/videos/cam3-backtable.mp4#t=6" },
   ],
   "INS-034": [
-    { at: -1080, type: "baseline", note: "Initial: 2× Gemini Artery Clamp on back table", frame: null },
+    { at: -1080, type: "baseline", note: "Initial: 2× Gemini Artery Clamp on back table", frame: "/videos/cam3-backtable.mp4#t=7" },
   ],
   "INS-035": [
-    { at: -1080, type: "baseline", note: "Initial: 2× Sponge Stick Foerster on back table", frame: null },
+    { at: -1080, type: "baseline", note: "Initial: 2× Sponge Stick Foerster on back table", frame: "/videos/cam3-backtable.mp4#t=8" },
   ],
   "INS-037": [
-    { at: -1080, type: "baseline", note: "Initial: 2× Crile Wood TC Needleholder on back table", frame: null },
+    { at: -1080, type: "baseline", note: "Initial: 2× Crile Wood TC Needleholder on back table", frame: "/videos/cam3-backtable.mp4#t=9" },
   ],
   "INS-039": [
-    { at: -1080, type: "baseline", note: "Initial: 2× Crile Wood TC Serrated Needleholder on back table", frame: null },
+    { at: -1080, type: "baseline", note: "Initial: 2× Crile Wood TC Serrated Needleholder on back table", frame: "/videos/cam3-backtable.mp4#t=10" },
   ],
   "INS-041": [
-    { at: -1080, type: "baseline", note: "Initial: 2× Halsey TC Needleholder on back table", frame: null },
+    { at: -1080, type: "baseline", note: "Initial: 2× Halsey TC Needleholder on back table", frame: "/videos/cam3-backtable.mp4#t=11" },
   ],
   "INS-042": [
-    { at: -1080, type: "baseline", note: "Initial: 2× Webster Smooth Needleholder on back table", frame: null },
+    { at: -1080, type: "baseline", note: "Initial: 2× Webster Smooth Needleholder on back table", frame: "/videos/cam3-backtable.mp4#t=12" },
   ],
   "INS-043": [
-    { at: -1080, type: "baseline", note: "Initial: 1× Lister Bandage Scissors on back table", frame: null },
+    { at: -1080, type: "baseline", note: "Initial: 1× Lister Bandage Scissors on back table", frame: "/videos/cam3-backtable.mp4#t=1" },
   ],
   "INS-045": [
-    { at: -1080, type: "baseline", note: "Initial: 2× Gorney Freeman TC Scissors on back table", frame: null },
+    { at: -1080, type: "baseline", note: "Initial: 2× Gorney Freeman TC Scissors on back table", frame: "/videos/cam3-backtable.mp4#t=2" },
   ],
   "INS-047": [
-    { at: -1080, type: "baseline", note: "Initial: 1× Mayo Beveled Straight Scissors on back table", frame: null },
+    { at: -1080, type: "baseline", note: "Initial: 1× Mayo Beveled Straight Scissors on back table", frame: "/videos/cam3-backtable.mp4#t=3" },
   ],
   "INS-048": [
-    { at: -1080, type: "baseline", note: "Initial: 2× Kaye SuperCut Scissors on back table", frame: null },
+    { at: -1080, type: "baseline", note: "Initial: 2× Kaye SuperCut Scissors on back table", frame: "/videos/cam3-backtable.mp4#t=4" },
   ],
   "INS-049": [
-    { at: -1080, type: "baseline", note: "Initial: 1× Lahey Metzenbaum TC Scissors on back table", frame: null },
+    { at: -1080, type: "baseline", note: "Initial: 1× Lahey Metzenbaum TC Scissors on back table", frame: "/videos/cam3-backtable.mp4#t=5" },
   ],
   "INS-050": [
-    { at: -1080, type: "baseline", note: "Initial: 2× Freeman Areola Marker 42mm on back table", frame: null },
+    { at: -1080, type: "baseline", note: "Initial: 2× Freeman Areola Marker 42mm on back table", frame: "/videos/cam3-backtable.mp4#t=6" },
   ],
   "INS-051": [
-    { at: -1080, type: "baseline", note: "Initial: 2× Freeman Areola Marker 38mm on back table", frame: null },
+    { at: -1080, type: "baseline", note: "Initial: 2× Freeman Areola Marker 38mm on back table", frame: "/videos/cam3-backtable.mp4#t=7" },
   ],
   "INS-052": [
-    { at: -1080, type: "baseline", note: "Initial: 2× Freeman Areola Marker 36mm on back table", frame: null },
+    { at: -1080, type: "baseline", note: "Initial: 2× Freeman Areola Marker 36mm on back table", frame: "/videos/cam3-backtable.mp4#t=8" },
   ],
   "INS-053": [
-    { at: -1080, type: "baseline", note: "Initial: 2× Freeman Areola Marker 34mm on back table", frame: null },
+    { at: -1080, type: "baseline", note: "Initial: 2× Freeman Areola Marker 34mm on back table", frame: "/videos/cam3-backtable.mp4#t=9" },
   ],
 };
 
