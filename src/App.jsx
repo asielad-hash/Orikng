@@ -60,7 +60,8 @@ const CATS=CATEGORIES.map(c=>({key:c.key,label:c.label,icon:c.icon,ck:c.colorKey
 const fmtSec=s=>`${String(Math.floor(s/3600)).padStart(2,"0")}:${String(Math.floor((s%3600)/60)).padStart(2,"0")}:${String(Math.floor(s%60)).padStart(2,"0")}`;
 
 // Time helpers — must be defined before ITEM_EVENTS which uses them
-let _procStartMs=parseInt(localStorage.getItem("orking_ps3"))||Date.now()+2071*1000;
+// Default: start at Procedure phase (offset 0) so items are already baselined and visible
+let _procStartMs=parseInt(localStorage.getItem("orking_ps3"))||Date.now();
 const realTime=(offsetSec)=>{const d=new Date(_procStartMs+offsetSec*1000);const h=d.getHours(),m=d.getMinutes();return `${String(h).padStart(2,"0")}:${String(m).padStart(2,"0")}`;};
 const realTimeFull=(offsetSec)=>{const d=new Date(_procStartMs+offsetSec*1000);return `${String(d.getHours()).padStart(2,"0")}:${String(d.getMinutes()).padStart(2,"0")}:${String(d.getSeconds()).padStart(2,"0")}`;};
 const PHASE_OFFSETS={
