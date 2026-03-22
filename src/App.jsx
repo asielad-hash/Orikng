@@ -419,9 +419,9 @@ function InvScreen({T,pendingItem,onPendingClear,elapsed=0,itemsOverride=null,it
                               <div style={{fontSize:14,color:T.text,lineHeight:1.4}}>{ev.note}</div>
                             </div>
                             {/* Video frame capture — click to enlarge */}
-                            <div onClick={e=>{e.stopPropagation();setLightbox({src:ev.frame.split("#")[0],time:parseFloat((ev.frame.split("t=")[1])||"0"),note:ev.note});}} style={{width:140,height:80,borderRadius:2,overflow:"hidden",border:`1px solid ${T.border}`,flexShrink:0,background:T.card2,cursor:"pointer"}}>
+                            {ev.frame?<div onClick={e=>{e.stopPropagation();setLightbox({src:ev.frame.split("#")[0],time:parseFloat((ev.frame.split("t=")[1])||"0"),note:ev.note});}} style={{width:140,height:80,borderRadius:2,overflow:"hidden",border:`1px solid ${T.border}`,flexShrink:0,background:T.card2,cursor:"pointer"}}>
                               <video src={ev.frame.split("#")[0]} muted style={{width:"100%",height:"100%",objectFit:"cover"}} onLoadedData={e=>{const t=parseFloat((ev.frame.split("t=")[1])||"0");e.target.currentTime=t;}}/>
-                            </div>
+                            </div>:<div style={{width:140,height:80,borderRadius:2,border:`1px solid ${T.border}`,flexShrink:0,background:T.card2,display:"flex",alignItems:"center",justifyContent:"center"}}><span style={{fontSize:11,color:T.muted}}>—</span></div>}
                           </div>
                         );
                       })}
