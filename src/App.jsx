@@ -867,7 +867,7 @@ function TnScreen({T,elapsed=0,phasesData=null,itemsOverride=null,itemEventsOver
         {/* KIT STATS */}
         <Cd T={T} style={{padding:0,overflow:"hidden"}}>
           <div style={{padding:"8px 12px",borderBottom:`2px solid ${T.border}`,background:T.card2}}>
-            <span style={{fontSize:13,fontWeight:700,color:T.text}}>Kit Utilization — {kitName||"LRG-Mastectomy Tray"}</span>
+            <span style={{fontSize:13,fontWeight:700,color:T.text}}>Kit Utilization — {kitName||"Masectomy Tray"}</span>
           </div>
           <div style={{padding:12}}>
             <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:12}}>
@@ -1092,9 +1092,9 @@ function ArchiveScreen({T}) {
   // Replay timer — ticks elapsed seconds when in replay mode
   useEffect(()=>{
     if(archiveMode!=="replay"){if(replayRef.current){clearInterval(replayRef.current);replayRef.current=null;}return;}
-    replayRef.current=setInterval(()=>setReplayElapsed(s=>s+1),1000);
+    replayRef.current=setInterval(()=>setReplayElapsed(s=>{const max=adapted?.totalElapsed;if(max!=null&&s>=max)return s;return s+1;}),1000);
     return()=>{if(replayRef.current)clearInterval(replayRef.current);};
-  },[archiveMode]);
+  },[archiveMode,adapted]);
 
 
   // Operation List (no op selected)
