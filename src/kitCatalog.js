@@ -293,14 +293,29 @@ export function getKitPdf(kitName) {
   return KIT_REGISTRY[kitName]?.pdf || "/assets/Masectomy_Tray.pdf";
 }
 
-// Get kit items — returns the FULL kit, no trimming
+// Standard consumables included with every kit
+const STANDARD_CONSUMABLES = [
+  { n: "Lap Sponge 18×18", cat: "sponge", init: 5, z: "mayo" },
+  { n: "Raytec Sponge 4×4", cat: "sponge", init: 5, z: "mayo" },
+  { n: "Peanut Sponge", cat: "sponge", init: 5, z: "mayo" },
+  { n: "4×4 Gauze Pad", cat: "sponge", init: 10, z: "mayo" },
+  { n: "Suture Needle CT-1", cat: "needle", init: 4, z: "mayo" },
+  { n: "Suture Needle SH", cat: "needle", init: 3, z: "mayo" },
+  { n: "Keith Needle", cat: "needle", init: 2, z: "mayo" },
+  { n: "Tapered RB-1", cat: "needle", init: 3, z: "mayo" },
+  { n: "Blade #10", cat: "sharp", init: 2, z: "mayo" },
+  { n: "Blade #15", cat: "sharp", init: 1, z: "mayo" },
+  { n: "Blade #11", cat: "sharp", init: 1, z: "mayo" },
+  { n: "Cavity Pack", cat: "pack", init: 2, z: "mayo" },
+  { n: "Lap Pack (5ct)", cat: "pack", init: 2, z: "mayo" },
+]; // 45 consumable pieces
+
+// Get kit items — returns FULL kit instruments + standard consumables
 export function getKitItems(kitName) {
   const kit = KIT_REGISTRY[kitName];
-  if (!kit) {
-    console.warn(`Kit "${kitName}" not found in registry, using Sheba Basic Delicate Set`);
-    return assignIds(BASIC_DELICATE.map(i => ({ ...i })));
-  }
-  return assignIds(kit.items.map(i => ({ ...i })));
+  const instruments = kit ? kit.items : BASIC_DELICATE;
+  const all = [...instruments.map(i => ({ ...i })), ...STANDARD_CONSUMABLES.map(i => ({ ...i }))];
+  return assignIds(all);
 }
 
 function assignIds(items) {

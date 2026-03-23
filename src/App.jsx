@@ -451,7 +451,8 @@ function InvScreen({T,pendingItem,onPendingClear,elapsed=0,itemsOverride=null,it
             return(<div style={{display:"flex",flexDirection:"column",gap:2,marginTop:6}}>
               {countPhases.map(cp=>{
                 const reached=elapsed>=cp.offsetStart;
-                const phEvents=countEvents.filter(e=>e.at>=cp.offsetStart&&(cp.idx+1<_PH_INV.length?e.at<_PH_INV[cp.idx+1].offsetStart:true)&&e.at<=elapsed);
+                const nextOff=cp.idx+1<_PH_INV.length?_PH_INV[cp.idx+1].offsetStart:Infinity;
+                const phEvents=countEvents.filter(e=>e.at>=cp.offsetStart&&(nextOff>cp.offsetStart?e.at<nextOff:e.at<=cp.offsetStart)&&e.at<=elapsed);
                 const result=phEvents.find(e=>e.tp==="ok"&&(e.e.includes("BALANCED")||e.e.includes("balanced")));
                 const col=T[cp.colorKey];
                 return(<div key={cp.id} style={{padding:"5px 8px",borderRadius:3,background:reached?col+"0a":"transparent",border:`1px solid ${reached?col+"33":T.border}`,opacity:reached?1:0.4,display:"flex",alignItems:"center",gap:8}}>
