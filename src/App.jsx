@@ -1355,8 +1355,11 @@ export default function App() {
           <div onClick={()=>setScreen("or_analytics")} style={{display:"flex",alignItems:"center",padding:"0 14px",cursor:"pointer",background:screen==="or_analytics"?T.card:"transparent",borderBottom:screen==="or_analytics"?`3px solid ${T.blue}`:"3px solid transparent",borderTop:screen==="or_analytics"?`3px solid ${T.blue}`:"3px solid transparent",fontFamily:MO,fontSize:13,fontWeight:screen==="or_analytics"?700:500,color:screen==="or_analytics"?T.blue:T.muted,textTransform:"uppercase",letterSpacing:.5}}>OR Stats</div>
         </div>
 
-        {/* RIGHT: Icon buttons */}
+        {/* RIGHT: Quick links + Icon buttons */}
         <div style={{display:"flex",alignItems:"center",gap:3}}>
+          <a href="https://surgicalinstruments.onrender.com/dashboard" target="_blank" rel="noopener" title="Surgical Instruments Dashboard" style={{width:32,height:32,display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",background:T.card2,border:`1px solid ${T.border}`,borderRadius:2,fontSize:14,color:T.muted,textDecoration:"none"}}>🔬</a>
+          <a href="https://surgicalinstruments.onrender.com/" target="_blank" rel="noopener" title="Instrument Capture App" style={{width:32,height:32,display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",background:T.card2,border:`1px solid ${T.border}`,borderRadius:2,fontSize:14,color:T.muted,textDecoration:"none"}}>📷</a>
+          <div style={{width:1,height:20,background:T.border,margin:"0 2px"}}/>
           <div onClick={()=>setShowSettings(!showSettings)} title="Settings" style={{width:32,height:32,display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",background:showSettings?T.teal:T.card2,border:`1px solid ${T.border}`,borderRadius:2,fontSize:16,color:showSettings?"#fff":T.muted}}>⚙</div>
           <div onClick={()=>setTheme(t=>t==="dark"?"light":"dark")} title={theme==="dark"?"Light mode":"Dark mode"} style={{width:32,height:32,display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",background:T.card2,border:`1px solid ${T.border}`,borderRadius:2,fontSize:14,color:T.muted}}>{theme==="dark"?"☀":"◐"}</div>
           <div onClick={()=>setShowReset(!showReset)} title="Reset to phase" style={{width:32,height:32,display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",background:showReset?T.amber:T.card2,border:`1px solid ${T.border}`,borderRadius:2,fontSize:14,color:showReset?"#fff":T.amber}}>↺</div>
