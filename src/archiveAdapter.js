@@ -148,23 +148,24 @@ export function adaptArchiveCase(archiveCase) {
 
     // ── Compute how many pieces move where ──
     // Items start in their declared zone (mayo or back_table)
-    // We need to generate events that move pieces to match the archive's final distribution
+    // INSTRUMENTS are reusable — they NEVER get disposed (only move between zones)
+    // CONSUMABLES (sponge, needle, sharp, pack) can be disposed
     const isFromMayo = item.z === 'mayo';
+    const isInstrument = item.cat === 'instrument';
 
     // How many of THIS item's pieces end up in each zone (proportional to global distribution)
     let toMayo = 0, toBack = 0, toPatient = 0, toDisposed = 0;
 
     if (isFromMayo) {
-      // Starts on mayo. Some may move to back, patient, or disposed.
       const stayMayo = Math.round(item.init * zM / zTotal);
-      toDisposed = Math.round(item.init * zD / zTotal);
+      toDisposed = isInstrument ? 0 : Math.round(item.init * zD / zTotal);
       toPatient = Math.round(item.init * zP / zTotal);
       toBack = item.init - stayMayo - toDisposed - toPatient;
       if (toBack < 0) { toBack = 0; }
     } else {
-      // Starts on back table. Some may move to mayo, patient, or disposed.
+      // Starts on back table.
       const stayBack = Math.round(item.init * zB / zTotal);
-      toDisposed = Math.round(item.init * zD / zTotal);
+      toDisposed = isInstrument ? 0 : Math.round(item.init * zD / zTotal);
       toPatient = Math.round(item.init * zP / zTotal);
       toMayo = item.init - stayBack - toDisposed - toPatient;
       if (toMayo < 0) { toMayo = 0; }
