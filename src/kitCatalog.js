@@ -329,8 +329,83 @@ const STANDARD_CONSUMABLES = [
   { n: "Lap Pack (5ct)", cat: "pack", init: 2, z: "mayo" },
 ]; // 45 consumable pieces
 
-// Get kit items — returns FULL kit instruments + standard consumables
+// ═══════════════════════════════════════════════════════
+// API INTEGRATION — Fetch kits from SurgicalInstruments app
+// ═══════════════════════════════════════════════════════
+const SURGICAL_API = 'https://surgicalinstruments.onrender.com/api';
+let _apiKitsCache = null; // { kits: Map<name, items[]>, fetchedAt: timestamp }
+
+// Fetch all kits from the SurgicalInstruments API and convert to ORKing format
+export async function fetchKitsFromAPI() {
+  try {
+    const res = await fetch(`${SURGICAL_API}/kit-catalogs`);
+    if (!res.ok) throw new Error(`API ${res.status}`);
+    const kits = await res.json();
+    const map = new Map();
+    for (const kit of kits) {
+      const instruments = [];
+      // API data: kit.data is array of families, each with items
+      const families = Array.isArray(kit.data) ? kit.data : [];
+      for (const family of families) {
+        const items = family.items || [];
+        for (const item of items) {
+          // Determine zone: first ~40% of instruments go to mayo, rest to back_table
+          // (realistic distribution — commonly used items on mayo, rest on back table)
+          const zoneRatio = instruments.length / Math.max(items.length * families.length, 1);
+          instruments.push({
+            n: item.name || item.description || 'Unknown',
+            cat: 'instrument',
+            init: item.quantity || item.qty || 1,
+            z: zoneRatio < 0.4 ? 'mayo' : 'back_table',
+          });
+        }
+      }
+      if (instruments.length > 0) {
+        map.set(kit.name, instruments);
+      }
+    }
+    _apiKitsCache = { kits: map, fetchedAt: Date.now() };
+    console.log(`[KitCatalog] Fetched ${map.size} kits from API: ${[...map.keys()].join(', ')}`);
+    return map;
+  } catch (err) {
+    console.warn('[KitCatalog] API fetch failed, using local catalog:', err.message);
+    return null;
+  }
+}
+
+// Get cached API kits (returns null if not fetched yet)
+function getAPIKit(kitName) {
+  if (!_apiKitsCache) return null;
+  // Try exact match first
+  if (_apiKitsCache.kits.has(kitName)) return _apiKitsCache.kits.get(kitName);
+  // Try fuzzy match (API name might have "Tray" suffix)
+  for (const [name, items] of _apiKitsCache.kits) {
+    if (name.toLowerCase().includes(kitName.toLowerCase()) ||
+        kitName.toLowerCase().includes(name.toLowerCase())) {
+      return items;
+    }
+  }
+  return null;
+}
+
+// Get list of all available kit names (API + local)
+export function getAvailableKits() {
+  const names = new Set(Object.keys(KIT_REGISTRY));
+  if (_apiKitsCache) {
+    for (const name of _apiKitsCache.kits.keys()) names.add(name);
+  }
+  return [...names];
+}
+
+// Get kit items — checks API cache first, falls back to local catalog
 export function getKitItems(kitName) {
+  // 1. Try API cache
+  const apiItems = getAPIKit(kitName);
+  if (apiItems) {
+    const all = [...apiItems.map(i => ({ ...i })), ...STANDARD_CONSUMABLES.map(i => ({ ...i }))];
+    return assignIds(all);
+  }
+  // 2. Fall back to local hardcoded kits
   const kit = KIT_REGISTRY[kitName];
   const instruments = kit ? kit.items : BASIC_DELICATE;
   const all = [...instruments.map(i => ({ ...i })), ...STANDARD_CONSUMABLES.map(i => ({ ...i }))];

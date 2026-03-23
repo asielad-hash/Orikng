@@ -19,6 +19,7 @@ import { ARCHIVE_CASES } from "./archiveDB";
 import { adaptArchiveCase } from "./archiveAdapter";
 import { eventBus, EVT as EVT_TYPES } from "./eventAPI";
 import { MockAlgorithm } from "./mockAlgorithm";
+import { fetchKitsFromAPI } from "./kitCatalog";
 
 /* ── useEventStream hook: subscribe to EventBus events ── */
 function useEventStream(eventType) {
@@ -1278,6 +1279,8 @@ export default function App() {
   const initPhase=useCallback(()=>{const el=Math.floor((Date.now()-procStart)/1000);for(let i=PHASE_STARTS.length-1;i>=0;i--){if(el>=PHASE_STARTS[i])return i;}return 0;},[procStart]);
   const [as,setAs]=useState(initPhase);
   useEffect(()=>{const t=setInterval(()=>setSec(Math.floor((Date.now()-procStart)/1000)),1000);return()=>clearInterval(t);},[procStart]);
+  // Fetch kits from SurgicalInstruments API on startup
+  useEffect(()=>{fetchKitsFromAPI();},[]);
   // Subscribe to phase.start events — update active phase when algo/backend emits
   useEffect(()=>{
     const handler=(evt)=>{
