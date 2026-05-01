@@ -1168,21 +1168,33 @@ function TlScreen({T,as=5,onScreenChange,elapsed=0,phasesData=null,evtsData=null
               </div>
             ))}
           </div>
-          {/* 2x1 Mic feeds */}
-          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,flexShrink:0}}>
-            {[{label:"MIC-1 (Room)",c:T.green},{label:"MIC-2 (Field)",c:T.purple}].map(mic=>(
-              <div key={mic.label} style={{padding:"8px 10px",borderRadius:3,border:`1px solid ${mic.c}22`,background:mic.c+"08"}}>
-                <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:6}}>
-                  <span style={{fontSize:12,fontFamily:MO,fontWeight:700,color:mic.c}}>{mic.label}</span>
+          {/* Shared rolling transcript — combined feed from both mics */}
+          {(()=>{
+            const recent=allTranscript.slice(-4);
+            return(
+              <div style={{padding:"10px 12px",borderRadius:3,border:`1px solid ${T.teal}22`,background:T.teal+"08"}}>
+                <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:8}}>
+                  <span style={{fontSize:12,fontFamily:MO,fontWeight:700,color:T.teal}}>🎙 Live Transcription · MIC-1 + MIC-2</span>
                   <div style={{display:"flex",alignItems:"center",gap:4}}>
                     <div style={{width:6,height:6,borderRadius:"50%",background:isArchive?T.muted:T.green,animation:isArchive?"none":"bl 2s infinite"}}/>
                     <span style={{fontSize:10,fontFamily:MO,color:isArchive?T.muted:T.green}}>{isArchive?"RECORDED":"LIVE"}</span>
                   </div>
                 </div>
-                <AudioMeter T={T} active={!isArchive}/>
+                <div style={{minHeight:80,maxHeight:120,overflow:"hidden",display:"flex",flexDirection:"column",justifyContent:"flex-end",gap:3}}>
+                  {recent.length===0?<span style={{fontSize:12,fontFamily:MO,color:T.muted,opacity:0.6,fontStyle:"italic"}}>—  awaiting first dialogue</span>:recent.map((line,i)=>{
+                    const isLatest=i===recent.length-1;
+                    const speakerColor=line.speaker.startsWith("Physician")?T.teal:line.speaker==="Scrub Tech"?T.cyan:line.speaker==="Anesthesia"?T.purple:line.speaker==="Circulator"?T.blue:T.muted;
+                    return(
+                      <div key={`${line.t}-${i}`} style={{fontSize:13,lineHeight:1.35,fontFamily:SA,color:isLatest?T.text:T.soft,opacity:isLatest?1:0.5+i*0.15}}>
+                        <span style={{fontFamily:MO,fontSize:10,fontWeight:700,color:speakerColor,marginRight:6,letterSpacing:0.3}}>{line.speaker}</span>
+                        {line.text}
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
-            ))}
-          </div>
+            );
+          })()}
         </div>}
       </div></FloatingPanel>
 
@@ -1489,7 +1501,7 @@ function SettingsScreen({T}){
         </div>);})}
       </Cd>
       <Cd T={T} style={{flex:1,padding:14,minHeight:0,overflow:"hidden"}}><Lb T={T}>Alerts</Lb><div style={{flex:1,overflowY:"auto",minHeight:0}}>{[{name:"Item Drop Detection",sev:"critical",en:true},{name:"Count Mismatch",sev:"critical",en:true},{name:"Staff Zone Breach",sev:"high",en:true},{name:"Time Out Incomplete",sev:"critical",en:true},{name:"Mid-Case Tray",sev:"medium",en:true},{name:"Camera Occlusion",sev:"medium",en:true},{name:"Idle Warning",sev:"low",en:false},{name:"Turnover Exceeded",sev:"low",en:true}].map((al,i)=>{const sc=al.sev==="critical"?T.red:al.sev==="high"?T.orange:al.sev==="medium"?T.amber:T.muted;return(<div key={i} style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"8px 0",borderBottom:`1px solid ${T.border}`,opacity:al.en?1:.4}}><div style={{display:"flex",alignItems:"center",gap:8}}><div style={{width:8,height:8,borderRadius:4,background:al.en?sc:T.faint}}/><span style={{fontSize:15,fontFamily:SA,color:T.text}}>{al.name}</span></div><P color={sc} T={T} small filled={al.en}>{al.sev}</P></div>);})}</div>
-        <div style={{flexShrink:0,marginTop:8,paddingTop:10,borderTop:`1px solid ${T.border}`,display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8}}>{[{l:"AI",v:"ORKing© v1.0.4"},{l:"CV",v:"YOLO-Surg v8"},{l:"NLU",v:"Tracki© v2.1"}].map((s,i)=>(<div key={i}><div style={{fontSize:10,fontFamily:MO,color:T.muted,textTransform:"uppercase"}}>{s.l}</div><div style={{fontSize:14,fontWeight:600,fontFamily:MO,color:T.teal,marginTop:2}}>{s.v}</div></div>))}</div>
+        <div style={{flexShrink:0,marginTop:8,paddingTop:10,borderTop:`1px solid ${T.border}`,display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8}}>{[{l:"AI",v:"Tracki© v1.0.4"},{l:"CV",v:"YOLO-Surg v8"},{l:"NLU",v:"Tracki© v2.1"}].map((s,i)=>(<div key={i}><div style={{fontSize:10,fontFamily:MO,color:T.muted,textTransform:"uppercase"}}>{s.l}</div><div style={{fontSize:14,fontWeight:600,fontFamily:MO,color:T.teal,marginTop:2}}>{s.v}</div></div>))}</div>
       </Cd>
     </div>
     <div style={{display:"flex",flexDirection:"column",gap:10,minHeight:0,overflow:"hidden"}}>
@@ -1792,7 +1804,7 @@ export default function App() {
         {/* LEFT: Logo + Case info */}
         <img src={T.n==="dark"?"/assets/trackimed-logo-white.png":"/assets/trackimed-logo.png"} alt="TrackiMed" style={{height:28}} onError={(e)=>{e.target.style.display="none";}}/>
         <div style={{borderLeft:`2px solid ${T.border}`,paddingLeft:10,marginLeft:10,marginRight:12}}>
-          <div style={{fontSize:15,fontWeight:700,color:T.text,fontFamily:SA}}>ORKing <span style={{color:T.teal,fontWeight:400,fontSize:10,fontFamily:MO}}>v1.0.4</span> <span style={{color:T.muted,fontWeight:400,fontSize:12,fontFamily:MO}}>{user.or} · {(()=>{const d=new Date(procStart-2071*1000);return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")} ${String(d.getHours()).padStart(2,"0")}:${String(d.getMinutes()).padStart(2,"0")}`;})()}</span></div>
+          <div style={{fontSize:15,fontWeight:700,color:T.text,fontFamily:SA}}>Tracki <span style={{color:T.teal,fontWeight:400,fontSize:10,fontFamily:MO}}>v1.0.4</span> <span style={{color:T.muted,fontWeight:400,fontSize:12,fontFamily:MO}}>{user.or} · {(()=>{const d=new Date(procStart-2071*1000);return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")} ${String(d.getHours()).padStart(2,"0")}:${String(d.getMinutes()).padStart(2,"0")}`;})()}</span></div>
           <div style={{fontSize:12,fontFamily:MO,color:T.muted}}>Case #{PROCEDURE.id} · <span style={{fontWeight:800,color:T.text,fontSize:13,fontFamily:SA}}>{PROCEDURE.type}</span></div>
         </div>
 

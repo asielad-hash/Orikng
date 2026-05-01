@@ -98,7 +98,7 @@ export default function Login({ onLogin }) {
             onError={(e) => { e.target.style.display = "none"; }}
           />
           <div style={{ fontSize: 22, fontWeight: 700, color: "#1a1a1a" }}>
-            ORKing<span style={{ color: "#00AB8E" }}>©</span>
+            Tracki<span style={{ color: "#00AB8E" }}>©</span>
           </div>
           <div style={{ fontSize: 11, fontFamily: MO, color: "#888", marginTop: 4, letterSpacing: 1.5, textTransform: "uppercase" }}>
             Operating Room Dashboard
