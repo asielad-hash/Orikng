@@ -340,7 +340,7 @@ const OR_LAYOUT_DEFAULTS={
   scr:{l:47,t:18},
   cir:{l:12,t:88},
   pa:{l:42,t:60},
-  emr:{l:6,t:74},
+  emr:{l:2,t:70,w:12,h:16,angle:0},
   bed:{cx:47.5,cy:50,w:21,h:48},
   bedAngle:0,
 };
@@ -348,18 +348,18 @@ let __orLayoutCache=null;
 const __orLayoutSubs=new Set();
 function getORLayout(){
   if(__orLayoutCache)return __orLayoutCache;
-  try{const s=localStorage.getItem("or_layout_v2");if(s)__orLayoutCache={...OR_LAYOUT_DEFAULTS,...JSON.parse(s)};}catch{}
+  try{const s=localStorage.getItem("or_layout_v3");if(s)__orLayoutCache={...OR_LAYOUT_DEFAULTS,...JSON.parse(s)};}catch{}
   return __orLayoutCache||OR_LAYOUT_DEFAULTS;
 }
 function setORLayout(next){
   __orLayoutCache=typeof next==="function"?next(getORLayout()):next;
-  try{localStorage.setItem("or_layout_v2",JSON.stringify(__orLayoutCache));}catch{}
+  try{localStorage.setItem("or_layout_v3",JSON.stringify(__orLayoutCache));}catch{}
   __orLayoutSubs.forEach(fn=>fn(__orLayoutCache));
 }
 if(typeof window!=="undefined"&&!window.__orLayoutStorageBound){
   window.__orLayoutStorageBound=true;
   window.addEventListener("storage",(e)=>{
-    if(e.key==="or_layout_v2"&&e.newValue){
+    if(e.key==="or_layout_v3"&&e.newValue){
       try{__orLayoutCache={...OR_LAYOUT_DEFAULTS,...JSON.parse(e.newValue)};__orLayoutSubs.forEach(fn=>fn(__orLayoutCache));}catch{}
     }
   });
@@ -613,19 +613,17 @@ function ORZoneMap({T,items,height=180}) {
     const localAng=rotatable&&layout[zk]?.angle||0;
     const ang=externalAngle!=null?externalAngle:localAng;
     const userTransform=pos.transform||"";
-    // Only the LOCAL angle is composed into the box rotation;
-    // externalAngle is assumed to already be in pos.transform (applied by caller)
     const finalTransform=localAng?`${userTransform} rotate(${localAng}deg)`.trim():userTransform;
     const finalPos={...pos,...(finalTransform?{transform:finalTransform}:{})};
-    // Counter-rotate the text content so it stays readable regardless of zone rotation
-    const counterT=ang?`rotate(${-ang}deg)`:undefined;
     const compact=rotatable||topAligned;
-    // Detect "flipped" rotation (90°-270°) so label+count always render at the visual top
+    // Auto-flip text 180° when box is in "upside-down" range (90°-270°) so it stays readable;
+    // also swap label/extra to the visual top/bottom edges
     const normAng=((ang%360)+360)%360;
     const flipped=normAng>90&&normAng<270;
+    const textT=flipped?"rotate(180deg)":undefined;
     const labelEdge=flipped?{bottom:4}:{top:4};
     const extraEdge=flipped?{top:4}:{bottom:4};
-    return(<div onMouseEnter={()=>onZoneEnter(zk)} onMouseLeave={()=>setHover(null)} onMouseDown={dragHandler} onTouchStart={dragHandler} style={{position:"absolute",...finalPos,border:hover===zk?`1.5px solid ${color}`:`1px dashed ${color}55`,borderRadius:3,background:hover===zk?color+"24":"transparent",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:0,cursor:dragHandler?"move":"pointer",zIndex:5,transition:"background .15s, border-color .15s",touchAction:dragHandler?"none":undefined,userSelect:"none"}}>{compact?<div style={{position:"absolute",left:0,right:0,...labelEdge,display:"flex",flexDirection:"row",alignItems:"center",justifyContent:"center",gap:6,pointerEvents:"none",transform:counterT,transformOrigin:"50% 50%"}}><span style={{fontSize:10,fontFamily:MO,color,fontWeight:700,textTransform:"uppercase",letterSpacing:1.2,lineHeight:1.2,textShadow:T.n==="dark"?"0 1px 2px rgba(0,0,0,.7)":"0 1px 2px rgba(255,255,255,.85)"}}>{label}</span><span style={{fontSize:16,fontFamily:MO,fontWeight:800,lineHeight:1.1,textShadow:T.n==="dark"?"0 1px 2px rgba(0,0,0,.7)":"0 1px 2px rgba(255,255,255,.85)"}}>{count}</span></div>:<div style={{display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",pointerEvents:"none",flexShrink:0}}><span style={{fontSize:10,fontFamily:MO,color,fontWeight:700,textTransform:"uppercase",letterSpacing:1.2,lineHeight:1.2,textShadow:T.n==="dark"?"0 1px 2px rgba(0,0,0,.7)":"0 1px 2px rgba(255,255,255,.85)"}}>{label}</span><span style={{fontSize:20,fontFamily:MO,fontWeight:800,lineHeight:1.1,marginTop:2,textShadow:T.n==="dark"?"0 1px 2px rgba(0,0,0,.7)":"0 1px 2px rgba(255,255,255,.85)"}}>{count}</span>{extra}</div>}{compact&&extra&&<div style={{position:"absolute",left:0,right:0,...extraEdge,display:"flex",justifyContent:"center",pointerEvents:"none",transform:counterT,transformOrigin:"50% 50%"}}>{extra}</div>}{resizable&&resizeHandle(zk,color)}{rotatable&&rotateHandle(zk,color,28)}</div>);
+    return(<div onMouseEnter={()=>onZoneEnter(zk)} onMouseLeave={()=>setHover(null)} onMouseDown={dragHandler} onTouchStart={dragHandler} style={{position:"absolute",...finalPos,border:hover===zk?`1.5px solid ${color}`:`1px dashed ${color}55`,borderRadius:3,background:hover===zk?color+"24":"transparent",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:0,cursor:dragHandler?"move":"pointer",zIndex:5,transition:"background .15s, border-color .15s",touchAction:dragHandler?"none":undefined,userSelect:"none"}}>{compact?<div style={{position:"absolute",left:0,right:0,...labelEdge,display:"flex",flexDirection:"row",alignItems:"center",justifyContent:"center",gap:6,pointerEvents:"none",transform:textT,transformOrigin:"50% 50%"}}><span style={{fontSize:10,fontFamily:MO,color,fontWeight:700,textTransform:"uppercase",letterSpacing:1.2,lineHeight:1.2,textShadow:T.n==="dark"?"0 1px 2px rgba(0,0,0,.7)":"0 1px 2px rgba(255,255,255,.85)"}}>{label}</span><span style={{fontSize:16,fontFamily:MO,fontWeight:800,lineHeight:1.1,textShadow:T.n==="dark"?"0 1px 2px rgba(0,0,0,.7)":"0 1px 2px rgba(255,255,255,.85)"}}>{count}</span></div>:<div style={{display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",pointerEvents:"none",flexShrink:0}}><span style={{fontSize:10,fontFamily:MO,color,fontWeight:700,textTransform:"uppercase",letterSpacing:1.2,lineHeight:1.2,textShadow:T.n==="dark"?"0 1px 2px rgba(0,0,0,.7)":"0 1px 2px rgba(255,255,255,.85)"}}>{label}</span><span style={{fontSize:20,fontFamily:MO,fontWeight:800,lineHeight:1.1,marginTop:2,textShadow:T.n==="dark"?"0 1px 2px rgba(0,0,0,.7)":"0 1px 2px rgba(255,255,255,.85)"}}>{count}</span>{extra}</div>}{compact&&extra&&<div style={{position:"absolute",left:0,right:0,...extraEdge,display:"flex",justifyContent:"center",pointerEvents:"none",transform:textT,transformOrigin:"50% 50%"}}>{extra}</div>}{resizable&&resizeHandle(zk,color)}{rotatable&&rotateHandle(zk,color,28)}</div>);
   };
   const tipD=hover?tipData(hover):[];
   const isFlex=height==="100%";
@@ -662,7 +660,7 @@ function ORZoneMap({T,items,height=180}) {
               <div style={{width:"18%",height:"45%",background:T.cyan,opacity:0.45,position:"absolute",left:"30%"}}/>
               <div style={{width:"18%",height:"45%",background:T.cyan,opacity:0.45,position:"absolute",left:"55%"}}/>
             </div>
-            <span style={{fontSize:9,fontFamily:MO,fontWeight:700,color:T.cyan,letterSpacing:0.5,whiteSpace:"nowrap",position:"relative",zIndex:1,display:"inline-block",transform:`rotate(${-(layout.bedAngle||0)}deg)`,transformOrigin:"50% 50%"}}>ANESTHESIA</span>
+            {(()=>{const a=((((layout.bedAngle||0)%360)+360)%360);const flip=a>90&&a<270;return(<span style={{fontSize:9,fontFamily:MO,fontWeight:700,color:T.cyan,letterSpacing:0.5,whiteSpace:"nowrap",position:"relative",zIndex:1,display:"inline-block",transform:flip?"rotate(180deg)":undefined,transformOrigin:"50% 50%"}}>ANESTHESIA</span>);})()}
           </div>
         </div>);
       })()}
@@ -670,7 +668,7 @@ function ORZoneMap({T,items,height=180}) {
       <button onClick={undo} disabled={history.length===0} title={history.length===0?"Nothing to undo":`Undo (${history.length})`} style={{position:"absolute",top:6,right:6,zIndex:9,width:32,height:32,borderRadius:"50%",background:history.length===0?T.card2:T.card,border:`1px solid ${T.border}`,cursor:history.length===0?"not-allowed":"pointer",fontSize:16,color:history.length===0?T.muted:T.text,display:"flex",alignItems:"center",justifyContent:"center",lineHeight:1,opacity:history.length===0?0.4:1,boxShadow:"0 1px 3px rgba(0,0,0,0.15)"}}>↶</button>
       {/* Sterile field — draggable, resizable, rotatable rectangle */}
       <div style={{position:"absolute",left:`${layout.sf.l}%`,top:`${layout.sf.t}%`,width:`${layout.sf.w}%`,height:`${layout.sf.h}%`,border:`1.5px dashed ${T.teal}88`,borderRadius:4,pointerEvents:"none",zIndex:1,transform:`rotate(${layout.sf?.angle||0}deg)`,transformOrigin:"50% 50%"}}>
-        <div onMouseDown={onDrag("sf",layout.sf.w,layout.sf.h)} onTouchStart={onDrag("sf",layout.sf.w,layout.sf.h)} title="Sterile Field — drag to move" style={{position:"absolute",top:-9,left:6,fontSize:9,fontFamily:MO,color:T.teal,background:floorBg,padding:"2px 6px",fontWeight:700,letterSpacing:1,pointerEvents:"auto",cursor:"move",border:`1px solid ${T.teal}66`,borderRadius:2,touchAction:"none",transform:`rotate(${-(layout.sf?.angle||0)}deg)`,transformOrigin:"left top"}}>STERILE FIELD</div>
+        {(()=>{const sa=((((layout.sf?.angle||0)%360)+360)%360);const flip=sa>90&&sa<270;return(<div onMouseDown={onDrag("sf",layout.sf.w,layout.sf.h)} onTouchStart={onDrag("sf",layout.sf.w,layout.sf.h)} title="Sterile Field — drag to move" style={{position:"absolute",...(flip?{bottom:-9,right:6}:{top:-9,left:6}),fontSize:9,fontFamily:MO,color:T.teal,background:floorBg,padding:"2px 6px",fontWeight:700,letterSpacing:1,pointerEvents:"auto",cursor:"move",border:`1px solid ${T.teal}66`,borderRadius:2,touchAction:"none",transform:flip?"rotate(180deg)":undefined,transformOrigin:"50% 50%"}}>STERILE FIELD</div>);})()}
         {resizeHandle("sf",T.teal)}
         {rotateHandle("sf",T.teal)}
       </div>
@@ -701,12 +699,15 @@ function ORZoneMap({T,items,height=180}) {
           <span style={{fontSize:7,color:T.cyan,fontFamily:MO,fontWeight:800,marginTop:1,letterSpacing:0.3}}>{s.role}</span>
         </div>:null
       ))}
-      {/* EMR Station — independently draggable, rotatable; icon rotates with chip, label stays readable */}
-      {layout.emr&&<div onMouseDown={onDrag("emr")} onTouchStart={onDrag("emr")} title="EMR Station — drag to reposition" style={{position:"absolute",left:`${layout.emr.l}%`,top:`${layout.emr.t}%`,transform:`translate(-50%,-50%) rotate(${layout.emr?.angle||0}deg)`,width:64,height:48,borderRadius:4,background:isDark?"#1a2330":"#dbe2ea",border:`1.5px solid ${T.muted}`,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",cursor:"move",zIndex:4,boxShadow:"0 2px 6px rgba(0,0,0,0.18)",userSelect:"none",touchAction:"none"}}>
-        <span style={{fontSize:22,lineHeight:1,pointerEvents:"none"}}>💻</span>
-        <span style={{fontSize:9,color:T.muted,fontFamily:MO,fontWeight:800,letterSpacing:0.7,marginTop:2,pointerEvents:"none",transform:`rotate(${-(layout.emr?.angle||0)}deg)`,transformOrigin:"50% 50%",display:"inline-block"}}>EMR</span>
-        {rotateHandle("emr",T.muted,22)}
-      </div>}
+      {/* EMR Station — independently draggable, rotatable, resizable */}
+      {layout.emr&&(()=>{const ew=layout.emr.w??12,eh=layout.emr.h??16;const ea=((((layout.emr?.angle||0)%360)+360)%360);const flip=ea>90&&ea<270;return(<div onMouseDown={onDrag("emr",ew,eh)} onTouchStart={onDrag("emr",ew,eh)} title="EMR Station — drag to reposition" style={{position:"absolute",left:`${layout.emr.l}%`,top:`${layout.emr.t}%`,width:`${ew}%`,height:`${eh}%`,transform:`rotate(${layout.emr?.angle||0}deg)`,transformOrigin:"50% 50%",borderRadius:4,background:isDark?"#1a2330":"#dbe2ea",border:`1.5px solid ${T.muted}`,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",cursor:"move",zIndex:4,boxShadow:"0 2px 6px rgba(0,0,0,0.18)",userSelect:"none",touchAction:"none"}}>
+        <div style={{display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",pointerEvents:"none",transform:flip?"rotate(180deg)":undefined,transformOrigin:"50% 50%"}}>
+          <span style={{fontSize:34,lineHeight:1}}>💻</span>
+          <span style={{fontSize:11,color:T.muted,fontFamily:MO,fontWeight:800,letterSpacing:0.8,marginTop:3}}>EMR</span>
+        </div>
+        {resizeHandle("emr",T.muted)}
+        {rotateHandle("emr",T.muted,28)}
+      </div>);})()}
       {/* Interactive zones */}
       {(()=>{const bw=layout.bed?.w??21,bh=layout.bed?.h??48;return zoneDiv("p",{left:`${(layout.bed?.cx||47.5)-bw/2}%`,top:`${(layout.bed?.cy||50)-bh/2}%`,width:`${bw}%`,height:`${bh}%`,transform:`rotate(${layout.bedAngle||0}deg)`,transformOrigin:"50% 50%"},"PATIENT",originCount(mOnP,bOnP),T.purple,<><span style={{fontSize:8,fontFamily:MO,color:T.purple+"99",pointerEvents:"none"}}>operative field</span><div onMouseDown={onResizeBed} onTouchStart={onResizeBed} title="Resize bed" style={{position:"absolute",bottom:0,right:0,width:16,height:16,cursor:"nwse-resize",zIndex:7,touchAction:"none",pointerEvents:"auto"}}><svg width="16" height="16" viewBox="0 0 16 16" style={{pointerEvents:"none"}}><path d="M 14 14 L 14 9 M 14 14 L 9 14 M 14 14 L 14 4 M 14 14 L 4 14" stroke={T.purple} strokeWidth="1.4" fill="none" strokeLinecap="round"/></svg></div></>,onDragBed,false,false,true,layout.bedAngle||0);})()}
       {zoneDiv("m",{left:`${layout.m.l}%`,top:`${layout.m.t}%`,width:`${layout.m.w}%`,height:`${layout.m.h}%`},"MAYO",originCount(mOnM,bOnM),MC,bM>0?<span style={{fontSize:8,fontFamily:MO,color:T.muted,pointerEvents:"none"}}>base <span style={{color:MC,fontWeight:700}}>{bM}</span></span>:null,onDrag("m",layout.m.w,layout.m.h),true,true)}
@@ -1552,7 +1553,7 @@ function SettingsScreen({T}){
         </div>);})}
       </Cd>
       <Cd T={T} style={{flex:1,padding:14,minHeight:0,overflow:"hidden"}}><Lb T={T}>Alerts</Lb><div style={{flex:1,overflowY:"auto",minHeight:0}}>{[{name:"Item Drop Detection",sev:"critical",en:true},{name:"Count Mismatch",sev:"critical",en:true},{name:"Staff Zone Breach",sev:"high",en:true},{name:"Time Out Incomplete",sev:"critical",en:true},{name:"Mid-Case Tray",sev:"medium",en:true},{name:"Camera Occlusion",sev:"medium",en:true},{name:"Idle Warning",sev:"low",en:false},{name:"Turnover Exceeded",sev:"low",en:true}].map((al,i)=>{const sc=al.sev==="critical"?T.red:al.sev==="high"?T.orange:al.sev==="medium"?T.amber:T.muted;return(<div key={i} style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"8px 0",borderBottom:`1px solid ${T.border}`,opacity:al.en?1:.4}}><div style={{display:"flex",alignItems:"center",gap:8}}><div style={{width:8,height:8,borderRadius:4,background:al.en?sc:T.faint}}/><span style={{fontSize:15,fontFamily:SA,color:T.text}}>{al.name}</span></div><P color={sc} T={T} small filled={al.en}>{al.sev}</P></div>);})}</div>
-        <div style={{flexShrink:0,marginTop:8,paddingTop:10,borderTop:`1px solid ${T.border}`,display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8}}>{[{l:"AI",v:"Tracki© v1.0.4"},{l:"CV",v:"YOLO-Surg v8"},{l:"NLU",v:"Tracki© v2.1"}].map((s,i)=>(<div key={i}><div style={{fontSize:10,fontFamily:MO,color:T.muted,textTransform:"uppercase"}}>{s.l}</div><div style={{fontSize:14,fontWeight:600,fontFamily:MO,color:T.teal,marginTop:2}}>{s.v}</div></div>))}</div>
+        <div style={{flexShrink:0,marginTop:8,paddingTop:10,borderTop:`1px solid ${T.border}`,display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8}}>{[{l:"AI",v:"Tracki© v1.0.5"},{l:"CV",v:"YOLO-Surg v8"},{l:"NLU",v:"Tracki© v2.1"}].map((s,i)=>(<div key={i}><div style={{fontSize:10,fontFamily:MO,color:T.muted,textTransform:"uppercase"}}>{s.l}</div><div style={{fontSize:14,fontWeight:600,fontFamily:MO,color:T.teal,marginTop:2}}>{s.v}</div></div>))}</div>
       </Cd>
     </div>
     <div style={{display:"flex",flexDirection:"column",gap:10,minHeight:0,overflow:"hidden"}}>
@@ -1855,7 +1856,7 @@ export default function App() {
         {/* LEFT: Logo + Case info */}
         <img src={T.n==="dark"?"/assets/trackimed-logo-white.png":"/assets/trackimed-logo.png"} alt="TrackiMed" style={{height:28}} onError={(e)=>{e.target.style.display="none";}}/>
         <div style={{borderLeft:`2px solid ${T.border}`,paddingLeft:10,marginLeft:10,marginRight:12}}>
-          <div style={{fontSize:15,fontWeight:700,color:T.text,fontFamily:SA}}>Tracki <span style={{color:T.teal,fontWeight:400,fontSize:10,fontFamily:MO}}>v1.0.4</span> <span style={{color:T.muted,fontWeight:400,fontSize:12,fontFamily:MO}}>{user.or} · {(()=>{const d=new Date(procStart-2071*1000);return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")} ${String(d.getHours()).padStart(2,"0")}:${String(d.getMinutes()).padStart(2,"0")}`;})()}</span></div>
+          <div style={{fontSize:15,fontWeight:700,color:T.text,fontFamily:SA}}>Tracki <span style={{color:T.teal,fontWeight:400,fontSize:10,fontFamily:MO}}>v1.0.5</span> <span style={{color:T.muted,fontWeight:400,fontSize:12,fontFamily:MO}}>{user.or} · {(()=>{const d=new Date(procStart-2071*1000);return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")} ${String(d.getHours()).padStart(2,"0")}:${String(d.getMinutes()).padStart(2,"0")}`;})()}</span></div>
           <div style={{fontSize:12,fontFamily:MO,color:T.muted}}>Case #{PROCEDURE.id} · <span style={{fontWeight:800,color:T.text,fontSize:13,fontFamily:SA}}>{PROCEDURE.type}</span></div>
         </div>
 

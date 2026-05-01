@@ -287,7 +287,7 @@ export default function Login({ onLogin }) {
             </span>
           ))}
         </div>
-        <span style={{ fontSize: 10, fontFamily: MO, color: "#aaa" }}>v1.0.4</span>
+        <span style={{ fontSize: 10, fontFamily: MO, color: "#aaa" }}>v1.0.5</span>
       </div>
     </div>
   );
