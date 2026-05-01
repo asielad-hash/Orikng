@@ -147,6 +147,116 @@ const Dot=({color="#00AB8E",size=8,pulse=true})=><span style={{display:"inline-b
 const Lb=({children,T})=><div style={{fontSize:15,fontFamily:MO,color:T.muted,textTransform:"uppercase",letterSpacing:1.5,marginBottom:10,flexShrink:0,fontWeight:600,borderBottom:`1px solid ${T.border}`,paddingBottom:6}}>{children}</div>;
 const Toggle=({on,onClick,color,T})=>(<div onClick={onClick} style={{width:44,height:22,borderRadius:3,cursor:"pointer",position:"relative",background:on?color+"33":T.card2,border:`1px solid ${on?color+"55":T.border}`,transition:"all .15s"}}><div style={{width:18,height:18,borderRadius:9,position:"absolute",top:1,left:on?23:1,background:on?color:T.muted,transition:"all .15s",boxShadow:on?`0 0 6px ${color}55`:"none"}}/></div>);
 
+// ── Floating Panel system: drag, resize, minimize ──
+function useFloatingPanels(storageKey, defaults) {
+  const [panels,setPanels]=useState(()=>{try{const s=localStorage.getItem(storageKey);if(s){const p=JSON.parse(s);return defaults.map(d=>({...d,...(p.find(x=>x.id===d.id)||{})}));}}catch{}return defaults;});
+  const [gridVisible,setGridVisible]=useState(false);
+  useEffect(()=>{try{localStorage.setItem(storageKey,JSON.stringify(panels));}catch{}},[panels,storageKey]);
+  const update=(id,patch)=>setPanels(ps=>ps.map(p=>p.id===id?{...p,...patch}:p));
+  const bringToFront=id=>setPanels(ps=>{const mz=Math.max(...ps.map(p=>p.z||1));return ps.map(p=>p.id===id?{...p,z:mz+1}:p);});
+  const reset=()=>{localStorage.removeItem(storageKey);setPanels(defaults);};
+  const showGrid=()=>setGridVisible(true);
+  const hideGrid=()=>setGridVisible(false);
+  return {panels,update,bringToFront,reset,gridVisible,showGrid,hideGrid};
+}
+
+// Grid overlay — light blue dashed lines, only shown during drag/resize
+function GridOverlay({visible}) {
+  if(!visible)return null;
+  const COLOR="rgba(59,130,246,0.14)"; // light blue, faint
+  return(<div style={{position:"absolute",inset:0,pointerEvents:"none",zIndex:9998,
+    backgroundImage:`linear-gradient(to right, ${COLOR} 1px, transparent 1px), linear-gradient(to bottom, ${COLOR} 1px, transparent 1px)`,
+    backgroundSize:`${GRID_SIZE*5}px ${GRID_SIZE*5}px`,
+    boxShadow:"inset 0 0 0 0 rgba(0,0,0,0)"
+  }}>
+    {/* finer grid every 10px on top */}
+    <div style={{position:"absolute",inset:0,
+      backgroundImage:`linear-gradient(to right, rgba(59,130,246,0.06) 1px, transparent 1px), linear-gradient(to bottom, rgba(59,130,246,0.06) 1px, transparent 1px)`,
+      backgroundSize:`${GRID_SIZE}px ${GRID_SIZE}px`,
+    }}/>
+  </div>);
+}
+
+// Global grid configuration for window snapping
+const GRID_SIZE=10; // pixel grid (snap unit)
+const snap=v=>Math.round(v/GRID_SIZE)*GRID_SIZE;
+
+function FloatingPanel({panel,update,bringToFront,T,children,headerColor,onInteractStart,onInteractEnd}) {
+  const dragRef=useRef(null);
+  const onDragStart=e=>{
+    bringToFront(panel.id);
+    if(onInteractStart)onInteractStart();
+    const isTouch=!!e.touches;
+    const startX=isTouch?e.touches[0].clientX:e.clientX;
+    const startY=isTouch?e.touches[0].clientY:e.clientY;
+    const startLeft=panel.x;const startTop=panel.y;
+    const move=ev=>{const cx=ev.touches?ev.touches[0].clientX:ev.clientX;const cy=ev.touches?ev.touches[0].clientY:ev.clientY;update(panel.id,{x:Math.max(0,snap(startLeft+cx-startX)),y:Math.max(0,snap(startTop+cy-startY))});if(ev.touches)ev.preventDefault();};
+    const up=()=>{document.removeEventListener("mousemove",move);document.removeEventListener("mouseup",up);document.removeEventListener("touchmove",move);document.removeEventListener("touchend",up);if(onInteractEnd)onInteractEnd();};
+    document.addEventListener("mousemove",move);document.addEventListener("mouseup",up);
+    document.addEventListener("touchmove",move,{passive:false});document.addEventListener("touchend",up);
+  };
+  // edge: 'n','s','e','w','ne','nw','se','sw'
+  const onResizeStart=(edge)=>(e)=>{
+    e.stopPropagation();bringToFront(panel.id);
+    if(onInteractStart)onInteractStart();
+    const isTouch=!!e.touches;
+    const startX=isTouch?e.touches[0].clientX:e.clientX;
+    const startY=isTouch?e.touches[0].clientY:e.clientY;
+    const startW=panel.w;const startH=panel.h;const startL=panel.x;const startT=panel.y;
+    const move=ev=>{
+      const cx=ev.touches?ev.touches[0].clientX:ev.clientX;
+      const cy=ev.touches?ev.touches[0].clientY:ev.clientY;
+      const dx=cx-startX, dy=cy-startY;
+      let nw=startW, nh=startH, nx=startL, ny=startT;
+      if(edge.includes("e"))nw=Math.max(220,snap(startW+dx));
+      if(edge.includes("w")){const newW=Math.max(220,snap(startW-dx));nx=startL+(startW-newW);nw=newW;}
+      if(edge.includes("s"))nh=Math.max(150,snap(startH+dy));
+      if(edge.includes("n")){const newH=Math.max(150,snap(startH-dy));ny=startT+(startH-newH);nh=newH;}
+      update(panel.id,{w:nw,h:nh,x:Math.max(0,nx),y:Math.max(0,ny)});
+      if(ev.touches)ev.preventDefault();
+    };
+    const up=()=>{document.removeEventListener("mousemove",move);document.removeEventListener("mouseup",up);document.removeEventListener("touchmove",move);document.removeEventListener("touchend",up);if(onInteractEnd)onInteractEnd();};
+    document.addEventListener("mousemove",move);document.addEventListener("mouseup",up);
+    document.addEventListener("touchmove",move,{passive:false});document.addEventListener("touchend",up);
+  };
+  if(panel.minimized)return null;
+  const hc=headerColor||T.teal;
+  const HG=8; // handle grip thickness for edges
+  const CS=14; // corner size
+  // helper to attach mouse + touch handler
+  const handle=(edge,style,extra={})=>{const fn=onResizeStart(edge);return{onMouseDown:fn,onTouchStart:fn,style:{position:"absolute",touchAction:"none",zIndex:3,...style,...extra}};};
+  return(<div style={{position:"absolute",left:panel.x,top:panel.y,width:panel.w,height:panel.h,zIndex:panel.z||1,background:T.card,border:`1px solid ${T.border}`,borderRadius:4,boxShadow:"0 4px 16px rgba(0,0,0,0.18)",display:"flex",flexDirection:"column",overflow:"hidden"}}>
+    <div ref={dragRef} onMouseDown={onDragStart} onTouchStart={onDragStart} onMouseEnter={()=>bringToFront(panel.id)} style={{display:"flex",alignItems:"center",gap:8,padding:"6px 10px",background:T.card2,borderBottom:`2px solid ${hc}`,cursor:"grab",userSelect:"none",touchAction:"none",flexShrink:0}}>
+      <span style={{fontSize:11,fontFamily:MO,color:T.muted,letterSpacing:1}}>⋮⋮</span>
+      <span style={{flex:1,fontSize:13,fontWeight:700,color:T.text,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{panel.title}</span>
+      <button onClick={e=>{e.stopPropagation();update(panel.id,{minimized:true});}} title="Minimize" style={{background:"none",border:"none",color:T.muted,cursor:"pointer",fontSize:14,padding:"2px 6px",lineHeight:1}}>—</button>
+    </div>
+    <div style={{flex:1,minHeight:0,overflow:"hidden",position:"relative"}}>{children}</div>
+    {/* edges */}
+    <div {...handle("n",{top:0,left:CS,right:CS,height:HG,cursor:"ns-resize"})} title="Resize"/>
+    <div {...handle("s",{bottom:0,left:CS,right:CS,height:HG,cursor:"ns-resize"})} title="Resize"/>
+    <div {...handle("e",{top:CS,bottom:CS,right:0,width:HG,cursor:"ew-resize"})} title="Resize"/>
+    <div {...handle("w",{top:CS,bottom:CS,left:0,width:HG,cursor:"ew-resize"})} title="Resize"/>
+    {/* corners */}
+    <div {...handle("nw",{top:0,left:0,width:CS,height:CS,cursor:"nwse-resize"})} title="Resize"/>
+    <div {...handle("ne",{top:0,right:0,width:CS,height:CS,cursor:"nesw-resize"})} title="Resize"/>
+    <div {...handle("sw",{bottom:0,left:0,width:18,height:18,cursor:"nesw-resize"})} title="Resize">
+      <svg width="18" height="18" viewBox="0 0 18 18" style={{pointerEvents:"none"}}><path d="M2 16 L2 10 M2 16 L8 16 M2 16 L14 16 M2 16 L2 4" stroke={T.muted} strokeWidth="1.5" fill="none"/></svg>
+    </div>
+    <div {...handle("se",{bottom:0,right:0,width:18,height:18,cursor:"nwse-resize"})} title="Resize">
+      <svg width="18" height="18" viewBox="0 0 18 18" style={{pointerEvents:"none"}}><path d="M16 16 L16 10 M16 16 L10 16 M16 16 L4 16 M16 16 L16 4" stroke={T.muted} strokeWidth="1.5" fill="none"/></svg>
+    </div>
+  </div>);
+}
+
+function MinimizedTray({panels,update,T}) {
+  const mins=panels.filter(p=>p.minimized);
+  if(mins.length===0)return null;
+  return(<div style={{position:"absolute",left:8,bottom:8,display:"flex",gap:6,zIndex:9999,flexWrap:"wrap"}}>
+    {mins.map(p=><button key={p.id} onClick={()=>update(p.id,{minimized:false})} title={`Restore ${p.title}`} style={{padding:"6px 12px",background:T.card,border:`1px solid ${T.border}`,borderTop:`2px solid ${T.teal}`,borderRadius:3,color:T.text,fontSize:12,fontWeight:600,cursor:"pointer",whiteSpace:"nowrap",fontFamily:SA,boxShadow:"0 2px 6px rgba(0,0,0,0.15)"}}>▢ {p.title}</button>)}
+  </div>);
+}
+
 // ── OR Zone Map with floating tooltip ──
 function ORZoneMap({T,items,height=180}) {
   const [hover,setHover]=useState(null);
@@ -192,8 +302,9 @@ function ORZoneMap({T,items,height=180}) {
   const onZoneEnter=(zk)=>{setHover(zk);};
   const zoneDiv=(zk,pos,label,count,color,extra)=>(<div onMouseEnter={()=>onZoneEnter(zk)} onMouseLeave={()=>setHover(null)} style={{position:"absolute",...pos,border:`2px solid ${color}44`,borderRadius:3,background:hover===zk?color+"22":color+"08",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",cursor:"pointer",zIndex:2,transition:"background .15s"}}><span style={{fontSize:11,fontFamily:MO,color,fontWeight:700,textTransform:"uppercase",letterSpacing:1,pointerEvents:"none"}}>{label}</span><span style={{fontSize:22,fontFamily:MO,fontWeight:800,pointerEvents:"none"}}>{count}</span>{extra}</div>);
   const tipD=hover?tipData(hover):[];
-  return(<div ref={mapRef} style={{position:"relative"}}>
-    <div style={{background:T.n==="dark"?"#0a0f14":"#e2e8f0",borderRadius:3,height,position:"relative",overflow:"hidden",border:`1px solid ${T.border}`}}>
+  const isFlex=height==="100%";
+  return(<div ref={mapRef} style={{position:"relative",height:isFlex?"100%":undefined,display:isFlex?"flex":undefined,flexDirection:isFlex?"column":undefined}}>
+    <div style={{background:T.n==="dark"?"#0a0f14":"#e2e8f0",borderRadius:3,height:isFlex?"100%":height,flex:isFlex?1:undefined,minHeight:isFlex?0:undefined,position:"relative",overflow:"hidden",border:`1px solid ${T.border}`}}>
       {zoneDiv("p",{left:"20%",top:"20%",width:"40%",height:"55%"},"PATIENT",originCount(mOnP,bOnP),T.purple,<span style={{fontSize:8,fontFamily:MO,color:T.purple+"88",pointerEvents:"none"}}>pieces</span>)}
       {zoneDiv("m",{left:"4%",top:"5%",width:"14%",height:"35%"},"MAYO",originCount(mOnM,bOnM),MC,bM>0?<span style={{fontSize:10,fontFamily:MO,color:T.muted,pointerEvents:"none"}}>baseline <span style={{color:MC,fontWeight:700}}>{bM}</span></span>:null)}
       {zoneDiv("b",{left:"65%",top:"8%",width:"30%",height:"55%"},"BACK TABLE",originCount(mOnB,bOnB),BC,bB>0?<span style={{fontSize:10,fontFamily:MO,color:T.muted,pointerEvents:"none"}}>baseline <span style={{color:BC,fontWeight:700}}>{bB}</span></span>:null)}
@@ -202,7 +313,7 @@ function ORZoneMap({T,items,height=180}) {
       <div style={{position:"absolute",left:"3%",top:"3%",width:"60%",height:"92%",border:`1px dashed ${T.teal}33`,borderRadius:3,pointerEvents:"none"}}><span style={{position:"absolute",top:-1,left:6,fontSize:8,fontFamily:MO,color:T.teal,background:T.n==="dark"?"#0a0f14":"#e2e8f0",padding:"0 3px"}}>STERILE FIELD</span></div>
     </div>
     {/* Floating tooltip popup */}
-    {hover&&tipD.length>0&&<div onMouseEnter={()=>setHover(hover)} onMouseLeave={()=>setHover(null)} style={{position:"absolute",left:0,top:height+4,zIndex:100,background:T.card,border:`2px solid ${zoneColors[hover]}`,borderRadius:4,padding:"8px 10px",minWidth:220,maxWidth:350,maxHeight:"50vh",overflowY:"auto",boxShadow:"0 4px 16px rgba(0,0,0,0.25)"}}>
+    {hover&&tipD.length>0&&<div onMouseEnter={()=>setHover(hover)} onMouseLeave={()=>setHover(null)} style={{position:"absolute",zIndex:100,background:T.card,border:`2px solid ${zoneColors[hover]}`,borderRadius:4,padding:"8px 10px",overflowY:"auto",boxShadow:"0 4px 16px rgba(0,0,0,0.25)",...(isFlex?{left:8,bottom:8,maxWidth:"calc(100% - 16px)",width:"max-content",minWidth:200,maxHeight:"60%"}:{left:0,top:height+4,minWidth:220,maxWidth:350,maxHeight:"50vh"})}}>
       <div style={{fontSize:11,fontFamily:MO,fontWeight:700,color:zoneColors[hover],marginBottom:4,letterSpacing:1,borderBottom:`1px solid ${T.border}`,paddingBottom:3}}>{zoneNames[hover]?.toUpperCase()}</div>
       {tipD.map((cat,ci)=>{const hasMissing=cat.missing&&cat.missing.length>0;const hasItems=cat.items&&cat.items.length>0;return(<div key={ci} style={{marginBottom:ci<tipD.length-1?6:0}}>
         <div style={{fontSize:10,fontFamily:MO,color:cat.c,fontWeight:600,marginBottom:2}}><span style={{marginRight:3}}>{cat.i}</span>{cat.l}{cat.totalMissing?` — ${cat.totalMissing} missing`:hasItems?` (${cat.items.reduce((s,i)=>s+i.count,0)})`:""}</div>
@@ -243,6 +354,14 @@ function InvScreen({T,pendingItem,onPendingClear,elapsed=0,itemsOverride=null,it
   },[pendingItem]);
   const [leftW,setLeftW_]=useState(()=>parseInt(localStorage.getItem("inv_leftW"))||320);
   const setLeftW=v=>{setLeftW_(v);localStorage.setItem("inv_leftW",v);};
+  // Floating panels for Inventory screen
+  const invPanels=useFloatingPanels("inv_panels_v1",[
+    {id:"categories",title:"Categories",x:8,y:8,w:300,h:560,minimized:false,z:1},
+    {id:"content",title:"Content",x:316,y:8,w:560,h:560,minimized:false,z:2},
+    {id:"location",title:"Surgical Item — Real Time Location",x:884,y:8,w:380,h:280,minimized:false,z:3},
+    {id:"counts",title:"Counts",x:884,y:296,w:380,h:140,minimized:false,z:4},
+    {id:"feed",title:"Event Feed",x:884,y:444,w:380,h:124,minimized:false,z:5},
+  ]);
   const [rightW,setRightW_]=useState(()=>parseInt(localStorage.getItem("inv_rightW"))||300);
   const setRightW=v=>{setRightW_(v);localStorage.setItem("inv_rightW",v);};
   const [lightbox,setLightbox]=useState(null); // {src, time, note}
@@ -263,9 +382,9 @@ function InvScreen({T,pendingItem,onPendingClear,elapsed=0,itemsOverride=null,it
   const zoneCats=CATS.map(c=>{const it=zoneItems.filter(i=>i.cat===c.key);return{...c,count:it.length,init:it.reduce((s,i)=>s+i.init,0),onMayo:it.reduce((s,i)=>s+i.loc.m,0),onBack:it.reduce((s,i)=>s+i.loc.b,0),onPatient:it.reduce((s,i)=>s+i.loc.p,0),dsp:it.reduce((s,i)=>s+i.loc.d,0)};}).filter(c=>c.count>0);
 
   return(
-    <div style={{display:"flex",gap:0,height:"100%",minHeight:0}}>
-      {/* LEFT: Zone selector + Categories */}
-      <div style={{display:"flex",flexDirection:"column",gap:8,minHeight:0,width:leftW,flexShrink:0,overflow:"hidden"}}>
+    <div style={{position:"relative",height:"100%",minHeight:0,overflow:"hidden"}}>
+      {/* CATEGORIES panel */}
+      <FloatingPanel panel={invPanels.panels.find(p=>p.id==="categories")} update={invPanels.update} bringToFront={invPanels.bringToFront} onInteractStart={invPanels.showGrid} onInteractEnd={invPanels.hideGrid} T={T} headerColor={T.teal}><div style={{height:"100%",display:"flex",flexDirection:"column",gap:8,minHeight:0,padding:10,overflow:"auto"}}>
         <div style={{flexShrink:0}}>
           <div style={{fontSize:16,fontWeight:700,color:T.teal,fontFamily:SA,cursor:"pointer",textDecoration:"underline"}} onClick={()=>{import("./kitCatalog").then(m=>window.open(m.getKitPdf(kitName||"Masectomy Tray"),"_blank"));}}>{kitName||"Masectomy Tray"}</div>
           <div style={{fontSize:12,fontFamily:MO,color:T.muted}}>{VIS.length} types · {tI} pieces</div>
@@ -337,13 +456,10 @@ function InvScreen({T,pendingItem,onPendingClear,elapsed=0,itemsOverride=null,it
           </div>
         </Cd>);})()}
 
-      </div>
+      </div></FloatingPanel>
 
-      {/* Left drag handle */}
-      <div style={{width:8,cursor:"col-resize",background:"transparent",flexShrink:0,position:"relative",touchAction:"none"}} onMouseDown={e=>{const startX=e.clientX;const startW=leftW;const onMove=ev=>{setLeftW(Math.max(200,Math.min(800,startW+(ev.clientX-startX))));};const onUp=()=>{document.removeEventListener("mousemove",onMove);document.removeEventListener("mouseup",onUp);};document.addEventListener("mousemove",onMove);document.addEventListener("mouseup",onUp);}} onTouchStart={e=>{const startX=e.touches[0].clientX;const startW=leftW;const onMove=ev=>{setLeftW(Math.max(200,Math.min(800,startW+(ev.touches[0].clientX-startX))));ev.preventDefault();};const onUp=()=>{document.removeEventListener("touchmove",onMove);document.removeEventListener("touchend",onUp);};document.addEventListener("touchmove",onMove,{passive:false});document.addEventListener("touchend",onUp);}}><div style={{position:"absolute",inset:"0 3px",background:T.border}}/></div>
-
-      {/* CENTER: Content based on category */}
-      <Cd T={T} style={{padding:0,minHeight:0,overflow:"hidden",flex:1}}>
+      {/* CONTENT panel */}
+      <FloatingPanel panel={invPanels.panels.find(p=>p.id==="content")} update={invPanels.update} bringToFront={invPanels.bringToFront} onInteractStart={invPanels.showGrid} onInteractEnd={invPanels.hideGrid} T={T} headerColor={T.purple}><div style={{height:"100%",display:"flex",flexDirection:"column"}}>
         {activeCat?(<>
         {(()=>{const zi=zoneItems.filter(it=>it.cat===activeCat);const zM=zi.reduce((s,i)=>s+i.loc.m,0);const zP=zi.reduce((s,i)=>s+i.loc.p,0);const zD=zi.reduce((s,i)=>s+i.loc.d,0);const zOpened=activeCat==="pack"?zi.reduce((s,i)=>((itemEventsOverride||ITEM_EVENTS)[i.id]||[]).filter(e=>e.type==="opened"&&e.at<=elapsed).length+s,0):0;return(
         <div style={{padding:"8px 12px",borderBottom:`2px solid ${T.border}`,display:"flex",alignItems:"center",justifyContent:"space-between",background:T.card2}}>
@@ -435,17 +551,18 @@ function InvScreen({T,pendingItem,onPendingClear,elapsed=0,itemsOverride=null,it
           )}
         </div>
         </>):(<div style={{flex:1,display:"flex",alignItems:"center",justifyContent:"center"}}><div style={{textAlign:"center",color:T.muted,fontFamily:MO}}><div style={{fontSize:16,marginBottom:8}}>Select a category from {activeZoneData.label}</div><div style={{fontSize:13}}>{zoneItems.length} types · {zoneItems.reduce((s,i)=>s+i.init,0)} pieces in this zone</div></div></div>)}
-      </Cd>
+      </div></FloatingPanel>
 
-      {/* Right drag handle */}
-      <div style={{width:8,cursor:"col-resize",background:"transparent",flexShrink:0,position:"relative",touchAction:"none"}} onMouseDown={e=>{const startX=e.clientX;const startW=rightW;const onMove=ev=>{setRightW(Math.max(200,Math.min(800,startW-(ev.clientX-startX))));};const onUp=()=>{document.removeEventListener("mousemove",onMove);document.removeEventListener("mouseup",onUp);};document.addEventListener("mousemove",onMove);document.addEventListener("mouseup",onUp);}} onTouchStart={e=>{const startX=e.touches[0].clientX;const startW=rightW;const onMove=ev=>{setRightW(Math.max(200,Math.min(800,startW-(ev.touches[0].clientX-startX))));ev.preventDefault();};const onUp=()=>{document.removeEventListener("touchmove",onMove);document.removeEventListener("touchend",onUp);};document.addEventListener("touchmove",onMove,{passive:false});document.addEventListener("touchend",onUp);}}><div style={{position:"absolute",inset:"0 3px",background:T.border}}/></div>
+      {/* LOCATION panel — Real Time Location */}
+      <FloatingPanel panel={invPanels.panels.find(p=>p.id==="location")} update={invPanels.update} bringToFront={invPanels.bringToFront} onInteractStart={invPanels.showGrid} onInteractEnd={invPanels.hideGrid} T={T} headerColor={T.cyan}>
+        <div style={{padding:10,height:"100%",display:"flex",flexDirection:"column",minHeight:0,boxSizing:"border-box"}}>
+          <ORZoneMap T={T} items={VIS} height="100%"/>
+        </div>
+      </FloatingPanel>
 
-      {/* RIGHT: Counts + Zone map + Event feed */}
-      <div style={{display:"flex",flexDirection:"column",gap:8,minHeight:0,width:rightW,flexShrink:0,overflow:"hidden"}}>
-        <Cd T={T} style={{padding:10,flexShrink:0,overflow:"visible"}}><Lb T={T}>Surgical Item — Real Time Location</Lb><ORZoneMap T={T} items={VIS} height={200}/></Cd>
-        {/* Count Events Panel */}
-        <Cd T={T} style={{padding:10,flexShrink:0}}>
-          <Lb T={T}>Counts</Lb>
+      {/* COUNTS panel */}
+      <FloatingPanel panel={invPanels.panels.find(p=>p.id==="counts")} update={invPanels.update} bringToFront={invPanels.bringToFront} onInteractStart={invPanels.showGrid} onInteractEnd={invPanels.hideGrid} T={T} headerColor={T.amber}>
+        <div style={{padding:10,height:"100%",overflow:"auto"}}>
           {(()=>{
             const countPhases=_PH_INV.map((p,i)=>({...p,idx:i})).filter(p=>p.gate);
             const countEvents=_EVT_INV.filter(e=>e.tp==="gate"||e.tp==="ok");
@@ -471,7 +588,10 @@ function InvScreen({T,pendingItem,onPendingClear,elapsed=0,itemsOverride=null,it
               })}
             </div>);
           })()}
-        </Cd>
+        </div></FloatingPanel>
+
+      {/* EVENT FEED panel */}
+      <FloatingPanel panel={invPanels.panels.find(p=>p.id==="feed")} update={invPanels.update} bringToFront={invPanels.bringToFront} onInteractStart={invPanels.showGrid} onInteractEnd={invPanels.hideGrid} T={T} headerColor={T.green}>
         {(()=>{
           // Merge EVT + all ITEM_EVENTS into unified chronological feed
           const catIcons={sponge:"◼",needle:"▲",sharp:"◆",pack:"▣",instrument:"◎"};
@@ -483,7 +603,7 @@ function InvScreen({T,pendingItem,onPendingClear,elapsed=0,itemsOverride=null,it
           const liveEvts=isArchive?[]:LIVE_EVENTS.filter(le=>le.at<=elapsed).map(le=>{const it=le.itemId?VIS.find(i=>i.id===le.itemId):null;const catData=it?CATS.find(c=>c.key===it.cat):null;return{t:liveEvtTime(le.at),at:le.at,s:6,e:le.e,tp:le.tp,src:"item",itemId:le.itemId||null,icon:it?catIcons[it.cat]||"":"",catColor:catData?catData.ck:"teal"};});
           const allEvts=[...sysEvts,...itemEvts,...liveEvts].sort((a,b)=>(a.t||"").localeCompare(b.t||""));
           return(
-          <Cd T={T} style={{flex:1,padding:10,minHeight:0,overflow:"hidden"}}>
+          <div style={{flex:1,padding:10,minHeight:0,overflow:"hidden",height:"100%",display:"flex",flexDirection:"column",boxSizing:"border-box"}}>
             <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:8,flexShrink:0}}>
               <Lb T={T}>Event Feed</Lb>
               <div style={{display:"flex",gap:4}}><P color={isArchive?T.muted:T.green} T={T} small>{isArchive?"Archived":"Live"}</P><span style={{fontSize:11,fontFamily:MO,color:T.muted}}>{allEvts.length}</span></div>
@@ -497,9 +617,12 @@ function InvScreen({T,pendingItem,onPendingClear,elapsed=0,itemsOverride=null,it
                 </div>
               );})}
             </div>
-          </Cd>);
+          </div>);
         })()}
-      </div>
+      </FloatingPanel>
+
+      <GridOverlay visible={invPanels.gridVisible}/>
+      <MinimizedTray panels={invPanels.panels} update={invPanels.update} T={T}/>
       {/* Lightbox modal */}
       {lightbox&&<div onClick={()=>setLightbox(null)} style={{position:"fixed",inset:0,zIndex:100,background:"rgba(0,0,0,0.85)",display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer"}}>
         <div onClick={e=>e.stopPropagation()} style={{position:"relative",maxWidth:"80vw",maxHeight:"80vh",background:T.card,border:`2px solid ${T.border}`,borderRadius:3,overflow:"hidden",cursor:"default"}}>
@@ -526,6 +649,13 @@ function TlScreen({T,as=5,onScreenChange,elapsed=0,phasesData=null,evtsData=null
   const setTlLeftW=v=>{setTlLeftW_(v);localStorage.setItem("tl_leftW",v);};
   const [tlRightW,setTlRightW_]=useState(()=>parseInt(localStorage.getItem("tl_rightW"))||380);
   const setTlRightW=v=>{setTlRightW_(v);localStorage.setItem("tl_rightW",v);};
+  // Floating panels for Timeline screen
+  const tlPanels=useFloatingPanels("tl_panels_v2",[
+    {id:"phases",title:"Phase Durations",x:8,y:8,w:340,h:540,minimized:false,z:1},
+    {id:"audio",title:"Audio Transcription / Media",x:360,y:8,w:520,h:540,minimized:false,z:2},
+    {id:"location",title:"Surgical Item — Real Time Location",x:892,y:8,w:420,h:280,minimized:false,z:3},
+    {id:"events",title:"Event Log",x:892,y:296,w:420,h:252,minimized:false,z:4},
+  ]);
   const [midTab,setMidTab]=useState("media"); // "transcript" | "media"
   // Dynamic durations based on elapsed time
   const PS=_PH.map(p=>p.offsetStart);
@@ -620,10 +750,9 @@ function TlScreen({T,as=5,onScreenChange,elapsed=0,phasesData=null,evtsData=null
       );
     })()}
 
-    {/* BOTTOM: Phase durations (left) | Audio transcription (middle) | Event log + OR diagram (right, draggable) */}
-    <div style={{display:"flex",gap:0,flex:1,minHeight:0}}>
-      {/* LEFT: Phase Durations */}
-      <Cd T={T} style={{padding:0,minHeight:0,overflow:"hidden",width:tlLeftW,flexShrink:0}}>
+    {/* BOTTOM: Floating panels — drag, resize, minimize freely */}
+    <div style={{position:"relative",flex:1,minHeight:0,overflow:"hidden"}}>
+      <FloatingPanel panel={tlPanels.panels.find(p=>p.id==="phases")} update={tlPanels.update} bringToFront={tlPanels.bringToFront} onInteractStart={tlPanels.showGrid} onInteractEnd={tlPanels.hideGrid} T={T} headerColor={T.teal}><div style={{height:"100%",display:"flex",flexDirection:"column"}}>
         <div style={{padding:"8px 12px",borderBottom:`2px solid ${T.border}`,background:T.card2}}>
           <span style={{fontSize:13,fontWeight:700,color:T.text}}>Phase Durations</span>
         </div>
@@ -648,13 +777,10 @@ function TlScreen({T,as=5,onScreenChange,elapsed=0,phasesData=null,evtsData=null
             );})}</tbody>
           </table>
         </div>
-      </Cd>
+      </div></FloatingPanel>
 
-      {/* Left drag handle */}
-      <div style={{width:8,cursor:"col-resize",background:"transparent",flexShrink:0,position:"relative",touchAction:"none"}} onMouseDown={e=>{const startX=e.clientX;const startW=tlLeftW;const onMove=ev=>{setTlLeftW(Math.max(200,Math.min(800,startW+(ev.clientX-startX))));};const onUp=()=>{document.removeEventListener("mousemove",onMove);document.removeEventListener("mouseup",onUp);};document.addEventListener("mousemove",onMove);document.addEventListener("mouseup",onUp);}} onTouchStart={e=>{const startX=e.touches[0].clientX;const startW=tlLeftW;const onMove=ev=>{setTlLeftW(Math.max(200,Math.min(800,startW+(ev.touches[0].clientX-startX))));ev.preventDefault();};const onUp=()=>{document.removeEventListener("touchmove",onMove);document.removeEventListener("touchend",onUp);};document.addEventListener("touchmove",onMove,{passive:false});document.addEventListener("touchend",onUp);}}><div style={{position:"absolute",inset:"0 3px",background:T.border}}/></div>
-
-      {/* MIDDLE: Tabbed — Audio Transcription | Media */}
-      <Cd T={T} style={{padding:0,minHeight:0,overflow:"hidden",flex:1,display:"flex",flexDirection:"column"}}>
+      {/* AUDIO/MEDIA panel */}
+      <FloatingPanel panel={tlPanels.panels.find(p=>p.id==="audio")} update={tlPanels.update} bringToFront={tlPanels.bringToFront} onInteractStart={tlPanels.showGrid} onInteractEnd={tlPanels.hideGrid} T={T} headerColor={T.purple}><div style={{height:"100%",display:"flex",flexDirection:"column"}}>
         <div style={{display:"flex",borderBottom:`2px solid ${T.border}`,background:T.card2,flexShrink:0}}>
           <div onClick={()=>setMidTab("transcript")} style={{padding:"8px 16px",cursor:"pointer",fontSize:12,fontFamily:MO,fontWeight:700,color:midTab==="transcript"?T.text:T.muted,borderBottom:midTab==="transcript"?`2px solid ${T.teal}`:"2px solid transparent",marginBottom:-2}}>Audio Transcription</div>
           <div onClick={()=>setMidTab("media")} style={{padding:"8px 16px",cursor:"pointer",fontSize:12,fontFamily:MO,fontWeight:700,color:midTab==="media"?T.text:T.muted,borderBottom:midTab==="media"?`2px solid ${T.purple}`:"2px solid transparent",marginBottom:-2}}>Media</div>
@@ -705,20 +831,20 @@ function TlScreen({T,as=5,onScreenChange,elapsed=0,phasesData=null,evtsData=null
             ))}
           </div>
         </div>}
-      </Cd>
+      </div></FloatingPanel>
 
-      {/* Right drag handle */}
-      <div style={{width:8,cursor:"col-resize",background:"transparent",flexShrink:0,position:"relative",touchAction:"none"}} onMouseDown={e=>{const startX=e.clientX;const startW=tlRightW;const onMove=ev=>{setTlRightW(Math.max(200,Math.min(800,startW-(ev.clientX-startX))));};const onUp=()=>{document.removeEventListener("mousemove",onMove);document.removeEventListener("mouseup",onUp);};document.addEventListener("mousemove",onMove);document.addEventListener("mouseup",onUp);}} onTouchStart={e=>{const startX=e.touches[0].clientX;const startW=tlRightW;const onMove=ev=>{setTlRightW(Math.max(200,Math.min(800,startW-(ev.touches[0].clientX-startX))));ev.preventDefault();};const onUp=()=>{document.removeEventListener("touchmove",onMove);document.removeEventListener("touchend",onUp);};document.addEventListener("touchmove",onMove,{passive:false});document.addEventListener("touchend",onUp);}}><div style={{position:"absolute",inset:"0 3px",background:T.border}}/></div>
+      {/* LOCATION panel — OR Zone Map */}
+      <FloatingPanel panel={tlPanels.panels.find(p=>p.id==="location")} update={tlPanels.update} bringToFront={tlPanels.bringToFront} onInteractStart={tlPanels.showGrid} onInteractEnd={tlPanels.hideGrid} T={T} headerColor={T.cyan}>
+        <div style={{padding:10,height:"100%",display:"flex",flexDirection:"column",minHeight:0,boxSizing:"border-box"}}>
+          <ORZoneMap T={T} items={tlVIS} height="100%"/>
+        </div>
+      </FloatingPanel>
 
-      {/* RIGHT: OR Diagram + Event Log */}
-      <div style={{display:"flex",flexDirection:"column",gap:8,minHeight:0,width:tlRightW,flexShrink:0,overflow:"hidden"}}>
-        {/* OR Zone Map — same as inventory */}
-        <Cd T={T} style={{padding:10,flexShrink:0,overflow:"visible"}}><Lb T={T}>Surgical Item — Real Time Location</Lb><ORZoneMap T={T} items={tlVIS} height={200}/></Cd>
-
-        {/* Event Log */}
-        <Cd T={T} style={{flex:1,padding:0,minHeight:0,overflow:"hidden"}}>
-          <div style={{padding:"8px 12px",borderBottom:`2px solid ${T.border}`,background:T.card2,display:"flex",alignItems:"center",justifyContent:"space-between"}}>
-            <span style={{fontSize:13,fontWeight:700,color:T.text}}>Event Log</span>
+      {/* EVENTS panel — Event Log only */}
+      <FloatingPanel panel={tlPanels.panels.find(p=>p.id==="events")} update={tlPanels.update} bringToFront={tlPanels.bringToFront} onInteractStart={tlPanels.showGrid} onInteractEnd={tlPanels.hideGrid} T={T} headerColor={T.amber}>
+        <div style={{height:"100%",display:"flex",flexDirection:"column"}}>
+          <div style={{padding:"8px 12px",borderBottom:`2px solid ${T.border}`,background:T.card2,display:"flex",alignItems:"center",justifyContent:"space-between",flexShrink:0}}>
+            <span style={{fontSize:12,fontFamily:MO,color:T.muted,letterSpacing:1.5}}>FILTER</span>
             <label style={{display:"flex",alignItems:"center",gap:4,cursor:"pointer",fontSize:11,fontFamily:MO,color:T.muted}}>
               <input type="checkbox" checked={showInvEvents} onChange={e=>setShowInvEvents(e.target.checked)} style={{cursor:"pointer"}}/>
               Inventory
@@ -733,8 +859,11 @@ function TlScreen({T,as=5,onScreenChange,elapsed=0,phasesData=null,evtsData=null
               </div>
             );})}
           </div>
-        </Cd>
-      </div>
+        </div>
+      </FloatingPanel>
+
+      <GridOverlay visible={tlPanels.gridVisible}/>
+      <MinimizedTray panels={tlPanels.panels} update={tlPanels.update} T={T}/>
     </div>
   </div>);
 }
@@ -761,17 +890,19 @@ function TnScreen({T,elapsed=0,phasesData=null,itemsOverride=null,itemEventsOver
   const btMoved=btInst.filter(it=>(it.loc?.m||0)>0).length;
   const sponges=_IT.filter(it=>it.cat==="sponge");const needles=_IT.filter(it=>it.cat==="needle");const sharps=_IT.filter(it=>it.cat==="sharp");const packs=_IT.filter(it=>it.cat==="pack");
 
-  return(<div style={{display:"flex",flexDirection:"column",gap:8,height:"100%",minHeight:0}}>
-    {/* Content: scrollable sections */}
-    <div style={{flex:1,overflowY:"auto",minHeight:0}}>
-      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,padding:4}}>
+  const tnPanels=useFloatingPanels("tn_panels_v1",[
+    {id:"phase",title:"Phase Performance",x:8,y:8,w:680,h:400,minimized:false,z:1},
+    {id:"compliance",title:"Compliance & Safety",x:696,y:8,w:680,h:400,minimized:false,z:2},
+    {id:"kit",title:`Kit Utilization — ${kitName||"Masectomy Tray"}`,x:8,y:416,w:680,h:380,minimized:false,z:3},
+    {id:"consumables",title:"Consumables",x:696,y:416,w:680,h:380,minimized:false,z:4},
+  ]);
 
-        {/* PHASE STATS */}
-        <Cd T={T} style={{padding:0,overflow:"hidden"}}>
-          <div style={{padding:"8px 12px",borderBottom:`2px solid ${T.border}`,background:T.card2}}>
-            <span style={{fontSize:13,fontWeight:700,color:T.text}}>Phase Performance</span>
-          </div>
-          <div style={{padding:0}}>
+  return(
+    <div style={{position:"relative",height:"100%",minHeight:0,overflow:"hidden"}}>
+      {/* PHASE STATS panel */}
+      <FloatingPanel panel={tnPanels.panels.find(p=>p.id==="phase")} update={tnPanels.update} bringToFront={tnPanels.bringToFront} onInteractStart={tnPanels.showGrid} onInteractEnd={tnPanels.hideGrid} T={T} headerColor={T.teal}>
+        <div style={{height:"100%",display:"flex",flexDirection:"column",overflow:"hidden"}}>
+          <div style={{flex:1,overflowY:"auto",minHeight:0}}>
             <table style={{width:"100%",borderCollapse:"collapse",fontSize:13,fontFamily:SA}}>
               <thead><tr style={{background:T.card2}}>
                 {["Phase","Actual","Benchmark","Variance",""].map(h=><th key={h} style={{padding:"6px 8px",textAlign:h==="Phase"?"left":"center",fontSize:10,fontFamily:MO,color:T.muted,textTransform:"uppercase",borderBottom:`2px solid ${T.border}`,borderRight:`1px solid ${T.border}`,fontWeight:600,width:h===""?80:undefined}}>{h}</th>)}
@@ -803,14 +934,13 @@ function TnScreen({T,elapsed=0,phasesData=null,itemsOverride=null,itemEventsOver
               </tbody>
             </table>
           </div>
-        </Cd>
+        </div>
+      </FloatingPanel>
 
-        {/* COMPLIANCE */}
-        <Cd T={T} style={{padding:0,overflow:"hidden"}}>
-          <div style={{padding:"8px 12px",borderBottom:`2px solid ${T.border}`,background:T.card2}}>
-            <span style={{fontSize:13,fontWeight:700,color:T.text}}>Compliance & Safety</span>
-          </div>
-          <div style={{padding:12}}>
+      {/* COMPLIANCE panel */}
+      <FloatingPanel panel={tnPanels.panels.find(p=>p.id==="compliance")} update={tnPanels.update} bringToFront={tnPanels.bringToFront} onInteractStart={tnPanels.showGrid} onInteractEnd={tnPanels.hideGrid} T={T} headerColor={T.amber}>
+        <div style={{height:"100%",display:"flex",flexDirection:"column",overflow:"hidden"}}>
+          <div style={{flex:1,overflowY:"auto",minHeight:0,padding:12}}>
             {isArchive&&archiveOp?(()=>{
               const warnEvts=archiveOp.events.filter(e=>e.tp==="warn");
               return(<>
@@ -856,14 +986,13 @@ function TnScreen({T,elapsed=0,phasesData=null,itemsOverride=null,itemEventsOver
               ))}
             </>}
           </div>
-        </Cd>
+        </div>
+      </FloatingPanel>
 
-        {/* KIT STATS */}
-        <Cd T={T} style={{padding:0,overflow:"hidden"}}>
-          <div style={{padding:"8px 12px",borderBottom:`2px solid ${T.border}`,background:T.card2}}>
-            <span style={{fontSize:13,fontWeight:700,color:T.text}}>Kit Utilization — {kitName||"Masectomy Tray"}</span>
-          </div>
-          <div style={{padding:12}}>
+      {/* KIT STATS panel */}
+      <FloatingPanel panel={tnPanels.panels.find(p=>p.id==="kit")} update={tnPanels.update} bringToFront={tnPanels.bringToFront} onInteractStart={tnPanels.showGrid} onInteractEnd={tnPanels.hideGrid} T={T} headerColor={T.purple}>
+        <div style={{height:"100%",display:"flex",flexDirection:"column",overflow:"hidden"}}>
+          <div style={{flex:1,overflowY:"auto",minHeight:0,padding:12}}>
             <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:12}}>
               <div style={{textAlign:"center",padding:10,background:T.teal+"0a",border:`1px solid ${T.teal}22`,borderRadius:3}}>
                 <div style={{fontSize:24,fontWeight:800,fontFamily:MO,color:T.teal}}>{mayoUsed}/{mayoInst.length}</div>
@@ -889,14 +1018,13 @@ function TnScreen({T,elapsed=0,phasesData=null,itemsOverride=null,itemEventsOver
               </div>
             );})}
           </div>
-        </Cd>
+        </div>
+      </FloatingPanel>
 
-        {/* CONSUMABLES STATS */}
-        <Cd T={T} style={{padding:0,overflow:"hidden"}}>
-          <div style={{padding:"8px 12px",borderBottom:`2px solid ${T.border}`,background:T.card2}}>
-            <span style={{fontSize:13,fontWeight:700,color:T.text}}>Consumables</span>
-          </div>
-          <div style={{padding:12,display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+      {/* CONSUMABLES STATS panel */}
+      <FloatingPanel panel={tnPanels.panels.find(p=>p.id==="consumables")} update={tnPanels.update} bringToFront={tnPanels.bringToFront} onInteractStart={tnPanels.showGrid} onInteractEnd={tnPanels.hideGrid} T={T} headerColor={T.green}>
+        <div style={{height:"100%",display:"flex",flexDirection:"column",overflow:"hidden"}}>
+          <div style={{flex:1,overflowY:"auto",minHeight:0,padding:12,display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
             {[{label:"Sponges",icon:"◼",items:sponges,c:T.teal},{label:"Needles",icon:"▲",items:needles,c:T.purple},{label:"Sharps",icon:"◆",items:sharps,c:T.amber},{label:"Disposables",icon:"▣",items:packs,c:T.green}].map(cat=>{const ini=cat.items.reduce((s,i)=>s+i.init,0);const mayo=cat.items.reduce((s,i)=>s+(i.loc?.m||0),0);const patient=cat.items.reduce((s,i)=>s+(i.loc?.p||0),0);const disp=cat.items.reduce((s,i)=>s+(i.loc?.d||0),0);const opened=cat.label==="Disposables"?cat.items.reduce((s,i)=>(_IE[i.id]||[]).filter(e=>e.type==="opened").length+s,0):0;return(
               <div key={cat.label} style={{padding:"8px 10px",border:`1px solid ${T.border}`,borderRadius:3}}>
                 <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:6}}>
@@ -932,11 +1060,13 @@ function TnScreen({T,elapsed=0,phasesData=null,itemsOverride=null,itemEventsOver
               </div>
             );})}
           </div>
-        </Cd>
+        </div>
+      </FloatingPanel>
 
-      </div>
+      <GridOverlay visible={tnPanels.gridVisible}/>
+      <MinimizedTray panels={tnPanels.panels} update={tnPanels.update} T={T}/>
     </div>
-  </div>);
+  );
 }
 
 /* ══════════════════════════════════════════════════════════
@@ -1442,10 +1572,16 @@ function ORAnalyticsScreen({T}) {
     {proc:"Thyroidectomy",cases:5,avgDur:"2:08",c:T.amber},
     {proc:"Mastectomy",cases:4,avgDur:"2:44",c:T.orange},
   ];
+  const anPanels=useFloatingPanels("an_panels_v1",[
+    {id:"overview",title:"OR-1 Overview & Metrics",x:8,y:8,w:560,h:280,minimized:false,z:1},
+    {id:"trend",title:"Trend by Period",x:8,y:296,w:560,h:280,minimized:false,z:2},
+    {id:"procedures",title:"By Procedure Type",x:576,y:8,w:480,h:568,minimized:false,z:3},
+    {id:"stats",title:"Quick Stats",x:1064,y:8,w:340,h:568,minimized:false,z:4},
+  ]);
   return(
-    <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 300px",gap:14,height:"100%",minHeight:0}}>
-      {/* Summary metrics */}
-      <div style={{display:"flex",flexDirection:"column",gap:12,minHeight:0}}>
+    <div style={{position:"relative",height:"100%",minHeight:0,overflow:"hidden"}}>
+      {/* OVERVIEW panel */}
+      <FloatingPanel panel={anPanels.panels.find(p=>p.id==="overview")} update={anPanels.update} bringToFront={anPanels.bringToFront} onInteractStart={anPanels.showGrid} onInteractEnd={anPanels.hideGrid} T={T} headerColor={T.blue}><div style={{height:"100%",display:"flex",flexDirection:"column",gap:12,padding:12,overflow:"auto",boxSizing:"border-box"}}>
         <div><div style={{fontSize:14,fontFamily:MO,color:T.blue,textTransform:"uppercase",letterSpacing:2}}>OR Performance</div><div style={{fontSize:24,fontWeight:800,color:T.text,fontFamily:SA}}>OR-1 Overview</div></div>
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8}}>
           {[{l:"Cases (Month)",v:"48",c:T.teal},{l:"Avg Duration",v:"2:12",c:T.text},{l:"OR Utilization",v:"70%",c:T.green},{l:"Avg Turnover",v:"21m",c:T.blue},{l:"Count Accuracy",v:"99.4%",c:T.green},{l:"Total Alerts",v:"11",c:T.amber}].map((m,i)=>(
@@ -1455,7 +1591,11 @@ function ORAnalyticsScreen({T}) {
             </Cd>
           ))}
         </div>
-        <Cd T={T} style={{flex:1,padding:14,minHeight:0,overflow:"hidden"}}>
+      </div></FloatingPanel>
+
+      {/* TREND panel */}
+      <FloatingPanel panel={anPanels.panels.find(p=>p.id==="trend")} update={anPanels.update} bringToFront={anPanels.bringToFront} onInteractStart={anPanels.showGrid} onInteractEnd={anPanels.hideGrid} T={T} headerColor={T.teal}>
+        <div style={{flex:1,padding:14,minHeight:0,overflow:"hidden",height:"100%",display:"flex",flexDirection:"column",boxSizing:"border-box"}}>
           <Lb T={T}>Trend by Period</Lb>
           <div style={{flex:1,overflowY:"auto",minHeight:0}}>
             <div style={{display:"grid",gridTemplateColumns:"100px 60px 70px 70px 60px 60px 70px",gap:6,padding:"8px 0",borderBottom:`2px solid ${T.border}`,position:"sticky",top:0,background:T.card,zIndex:1}}>
@@ -1473,10 +1613,12 @@ function ORAnalyticsScreen({T}) {
               </div>
             ))}
           </div>
-        </Cd>
-      </div>
-      {/* By procedure type */}
-      <Cd T={T} style={{padding:14,minHeight:0,overflow:"hidden"}}>
+        </div>
+      </FloatingPanel>
+
+      {/* BY PROCEDURE panel */}
+      <FloatingPanel panel={anPanels.panels.find(p=>p.id==="procedures")} update={anPanels.update} bringToFront={anPanels.bringToFront} onInteractStart={anPanels.showGrid} onInteractEnd={anPanels.hideGrid} T={T} headerColor={T.purple}>
+        <div style={{padding:14,minHeight:0,overflow:"hidden",height:"100%",display:"flex",flexDirection:"column",boxSizing:"border-box"}}>
         <Lb T={T}>By Procedure Type</Lb>
         <div style={{flex:1,overflowY:"auto",minHeight:0}}>
           {procTypes.map((p,i)=>{const maxCases=14;return(
@@ -1494,10 +1636,13 @@ function ORAnalyticsScreen({T}) {
             </div>
           );})}
         </div>
-      </Cd>
-      {/* Right: Quick stats */}
-      <div style={{display:"flex",flexDirection:"column",gap:12,minHeight:0}}>
-        <Cd T={T} style={{padding:14,flexShrink:0}}>
+        </div>
+      </FloatingPanel>
+
+      {/* QUICK STATS panel */}
+      <FloatingPanel panel={anPanels.panels.find(p=>p.id==="stats")} update={anPanels.update} bringToFront={anPanels.bringToFront} onInteractStart={anPanels.showGrid} onInteractEnd={anPanels.hideGrid} T={T} headerColor={T.green}>
+        <div style={{display:"flex",flexDirection:"column",gap:12,minHeight:0,height:"100%",padding:12,overflow:"auto",boxSizing:"border-box"}}>
+        <div style={{flexShrink:0}}>
           <Lb T={T}>Efficiency Gains</Lb>
           {[{l:"Time Saved / Case",v:"~42 min",c:T.green},{l:"Monthly Savings",v:"$280K",c:T.teal},{l:"Retained Items",v:"0",c:T.green},{l:"Auto-Doc Rate",v:"97%",c:T.cyan}].map((m,i)=>(
             <div key={i} style={{padding:"8px 0",borderBottom:i<3?`1px solid ${T.border}`:"none"}}>
@@ -1505,8 +1650,8 @@ function ORAnalyticsScreen({T}) {
               <div style={{fontSize:22,fontWeight:700,fontFamily:MO,color:m.c,marginTop:3}}>{m.v}</div>
             </div>
           ))}
-        </Cd>
-        <Cd T={T} style={{padding:14,flexShrink:0}}>
+        </div>
+        <div style={{flexShrink:0,paddingTop:6,borderTop:`1px solid ${T.border}`}}>
           <Lb T={T}>Staff Leaderboard</Lb>
           {[{name:"Physician A",cases:18,eff:"94%"},{name:"Physician C",cases:14,eff:"91%"},{name:"Physician D",cases:10,eff:"88%"},{name:"Physician E",cases:6,eff:"92%"}].map((s,i)=>(
             <div key={i} style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"8px 0",borderBottom:i<3?`1px solid ${T.border}`:"none"}}>
@@ -1520,10 +1665,10 @@ function ORAnalyticsScreen({T}) {
               </div>
             </div>
           ))}
-        </Cd>
-        <Cd T={T} style={{flex:1,padding:14,minHeight:0,overflow:"hidden"}}>
+        </div>
+        <div style={{flex:1,minHeight:0,overflow:"hidden",paddingTop:6,borderTop:`1px solid ${T.border}`}}>
           <Lb T={T}>Alert Distribution</Lb>
-          <div style={{flex:1,overflowY:"auto",minHeight:0}}>
+          <div style={{overflowY:"auto"}}>
             {[{type:"Item Drop",count:5,c:T.orange},{type:"Count Mismatch",count:3,c:T.red},{type:"Mid-Case Tray",count:2,c:T.amber},{type:"Camera Occlusion",count:1,c:T.muted}].map((a,i)=>(
               <div key={i} style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"8px 0",borderBottom:`1px solid ${T.border}`}}>
                 <div style={{display:"flex",alignItems:"center",gap:8}}>
@@ -1534,8 +1679,12 @@ function ORAnalyticsScreen({T}) {
               </div>
             ))}
           </div>
-        </Cd>
-      </div>
+        </div>
+        </div>
+      </FloatingPanel>
+
+      <GridOverlay visible={anPanels.gridVisible}/>
+      <MinimizedTray panels={anPanels.panels} update={anPanels.update} T={T}/>
     </div>
   );
 }
