@@ -223,15 +223,21 @@ function FloatingPanel({panel,update,bringToFront,T,children,headerColor,onInter
   const hc=headerColor||T.teal;
   const HG=8; // handle grip thickness for edges
   const CS=14; // corner size
+  const z=panel.zoom||1;
+  const setZoom=(delta)=>update(panel.id,{zoom:Math.max(0.7,Math.min(1.8,+(z+delta).toFixed(2)))});
+  const stopBtn={onMouseDown:e=>e.stopPropagation(),onTouchStart:e=>e.stopPropagation()};
   // helper to attach mouse + touch handler
   const handle=(edge,style,extra={})=>{const fn=onResizeStart(edge);return{onMouseDown:fn,onTouchStart:fn,style:{position:"absolute",touchAction:"none",zIndex:3,...style,...extra}};};
   return(<div onMouseDown={()=>bringToFront(panel.id)} onTouchStart={()=>bringToFront(panel.id)} style={{position:"absolute",left:panel.x,top:panel.y,width:panel.w,height:panel.h,zIndex:panel.z||1,background:T.card,border:`1px solid ${T.border}`,borderRadius:4,boxShadow:"0 4px 16px rgba(0,0,0,0.18)",display:"flex",flexDirection:"column",overflow:"hidden"}}>
-    <div ref={dragRef} onMouseDown={onDragStart} onTouchStart={onDragStart} onMouseEnter={()=>bringToFront(panel.id)} style={{display:"flex",alignItems:"center",gap:8,padding:"6px 10px",background:T.card2,borderBottom:`2px solid ${hc}`,cursor:"grab",userSelect:"none",touchAction:"none",flexShrink:0}}>
+    <div ref={dragRef} onMouseDown={onDragStart} onTouchStart={onDragStart} onMouseEnter={()=>bringToFront(panel.id)} style={{display:"flex",alignItems:"center",gap:6,padding:"6px 10px",background:T.card2,borderBottom:`2px solid ${hc}`,cursor:"grab",userSelect:"none",touchAction:"none",flexShrink:0}}>
       <span style={{fontSize:11,fontFamily:MO,color:T.muted,letterSpacing:1}}>⋮⋮</span>
       <span style={{flex:1,fontSize:13,fontWeight:700,color:T.text,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{panel.title}</span>
-      <button onClick={e=>{e.stopPropagation();update(panel.id,{minimized:true});}} title="Minimize" style={{background:"none",border:"none",color:T.muted,cursor:"pointer",fontSize:14,padding:"2px 6px",lineHeight:1}}>—</button>
+      <button {...stopBtn} onClick={e=>{e.stopPropagation();setZoom(-0.1);}} title="Smaller text" style={{background:"none",border:"none",color:T.muted,cursor:"pointer",fontSize:11,padding:"2px 5px",lineHeight:1,fontFamily:MO,fontWeight:700}}>A−</button>
+      <span style={{fontSize:9,fontFamily:MO,color:T.muted,minWidth:26,textAlign:"center"}} title="Zoom level">{Math.round(z*100)}%</span>
+      <button {...stopBtn} onClick={e=>{e.stopPropagation();setZoom(0.1);}} title="Bigger text" style={{background:"none",border:"none",color:T.muted,cursor:"pointer",fontSize:14,padding:"2px 5px",lineHeight:1,fontFamily:MO,fontWeight:700}}>A+</button>
+      <button {...stopBtn} onClick={e=>{e.stopPropagation();update(panel.id,{minimized:true});}} title="Minimize" style={{background:"none",border:"none",color:T.muted,cursor:"pointer",fontSize:14,padding:"2px 6px",lineHeight:1}}>—</button>
     </div>
-    <div style={{flex:1,minHeight:0,overflow:"hidden",position:"relative"}}>{children}</div>
+    <div style={{flex:1,minHeight:0,overflow:"hidden",position:"relative"}}><div style={{width:"100%",height:"100%",zoom:z}}>{children}</div></div>
     {/* edges */}
     <div {...handle("n",{top:0,left:CS,right:CS,height:HG,cursor:"ns-resize"})} title="Resize"/>
     <div {...handle("s",{bottom:0,left:CS,right:CS,height:HG,cursor:"ns-resize"})} title="Resize"/>
