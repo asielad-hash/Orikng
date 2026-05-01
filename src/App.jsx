@@ -1550,7 +1550,7 @@ export default function App() {
           <div style={{flex:1,overflow:"auto",padding:14,minHeight:0}}><SettingsScreen T={T}/></div>
         </div>}
       </div>
-      <FeedbackOverlay T={T} screen={screen} onScreenChange={setScreen}/>
+      {/* <FeedbackOverlay T={T} screen={screen} onScreenChange={setScreen}/> */}
     </div>
   );
 }
