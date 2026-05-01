@@ -2,11 +2,28 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="theme-color" content="#0a0f14" />
     <title>TrackiMed — ORKing Live Dashboard</title>
   </head>
   <body>
-    <style>html,body{font-size:16px;}</style>
+    <style>
+      html,body{font-size:16px;-webkit-text-size-adjust:100%;touch-action:manipulation;}
+      *{-webkit-tap-highlight-color:transparent;}
+      /* Touch-friendly scrollbars (visible on iPad) */
+      ::-webkit-scrollbar{width:10px;height:10px;}
+      ::-webkit-scrollbar-thumb{background:rgba(128,128,128,0.4);border-radius:5px;}
+      ::-webkit-scrollbar-thumb:hover{background:rgba(128,128,128,0.6);}
+      ::-webkit-scrollbar-track{background:transparent;}
+      /* iPad landscape (1024-1366px) — show portrait warning if portrait */
+      @media (max-width:1023px) and (orientation:portrait){
+        body::before{content:"⟲  Please rotate device to landscape";position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:#0a0f14;color:#00C9B7;font-size:18px;font-weight:600;z-index:9999;text-align:center;padding:24px;}
+        #root{display:none;}
+      }
+    </style>
     <div id="root"></div>
     <script type="module" src="/src/main.jsx"></script>
   </body>
