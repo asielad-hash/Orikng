@@ -275,26 +275,23 @@ function PanelLauncher({panels,update,bringToFront,T,meta}) {
   const itemSize=42;
   const FAB_BOTTOM=30;
   const FAB_LEFT=30;
-  const fanCSS=(px,axis)=>`calc(${px}px + env(safe-area-inset-${axis}, 0px))`;
   const itemPos=(i)=>{
     const t=n===1?0.5:i/(n-1);
     const angle=(Math.PI/2)*t;
-    const lpx=FAB_LEFT+(fabSize-itemSize)/2+r*Math.sin(angle);
-    const bpx=FAB_BOTTOM+(fabSize-itemSize)/2+r*Math.cos(angle);
-    return {left:fanCSS(lpx,"left"),bottom:fanCSS(bpx,"bottom")};
+    return {left:FAB_LEFT+(fabSize-itemSize)/2+r*Math.sin(angle),bottom:FAB_BOTTOM+(fabSize-itemSize)/2+r*Math.cos(angle)};
   };
   const handleClick=(p)=>{if(p.minimized)update(p.id,{minimized:false});bringToFront(p.id);setOpen(false);};
   return(<>
-    {open&&<div onClick={()=>setOpen(false)} style={{position:"absolute",inset:0,zIndex:9989,background:"rgba(0,0,0,0.08)",cursor:"default"}}/>}
+    {open&&<div onClick={()=>setOpen(false)} style={{position:"fixed",inset:0,zIndex:9989,background:"rgba(0,0,0,0.08)",cursor:"default"}}/>}
     {panels.map((p,i)=>{
-      const pos=open?itemPos(i):{left:fanCSS(FAB_LEFT+(fabSize-itemSize)/2,"left"),bottom:fanCSS(FAB_BOTTOM+(fabSize-itemSize)/2,"bottom")};
+      const pos=open?itemPos(i):{left:FAB_LEFT+(fabSize-itemSize)/2,bottom:FAB_BOTTOM+(fabSize-itemSize)/2};
       const m=meta&&meta[p.id]||{};
       const c=(m.c&&T[m.c])||T.teal;
       const icon=m.i;
       const initials=p.title.replace(/[—–\-:].*/,"").trim().split(/\s+/).slice(0,2).map(s=>s[0]).join("").toUpperCase();
       const display=icon||initials||"·";
       return(<button key={p.id} onClick={()=>handleClick(p)} title={p.title} style={{
-        position:"absolute",left:pos.left,bottom:pos.bottom,
+        position:"fixed",left:pos.left,bottom:pos.bottom,
         width:itemSize,height:itemSize,borderRadius:"50%",
         background:T.card,color:c,border:`2px solid ${c}`,
         cursor:"pointer",WebkitAppearance:"none",appearance:"none",padding:0,
@@ -309,7 +306,7 @@ function PanelLauncher({panels,update,bringToFront,T,meta}) {
       }}>{display}{p.minimized&&<span style={{position:"absolute",top:-2,right:-2,width:8,height:8,borderRadius:"50%",background:T.muted,border:`1.5px solid ${T.card}`}}/>}</button>);
     })}
     <button onClick={()=>setOpen(o=>!o)} title={open?"Close":"Panels"} style={{
-      position:"absolute",left:fanCSS(FAB_LEFT,"left"),bottom:fanCSS(FAB_BOTTOM,"bottom"),
+      position:"fixed",left:FAB_LEFT,bottom:FAB_BOTTOM,
       width:fabSize,height:fabSize,borderRadius:"50%",
       background:open?T.red:T.teal,color:"#fff",border:"none",cursor:"pointer",
       WebkitAppearance:"none",appearance:"none",padding:0,margin:0,
