@@ -144,7 +144,7 @@ function useInventoryState(elapsed, itemsOverride = null, itemEventsOverride = n
 const P=({children,color,T,filled,small})=><span style={{display:"inline-flex",alignItems:"center",padding:small?"2px 8px":"3px 10px",borderRadius:2,fontSize:small?12:13,fontWeight:600,letterSpacing:.3,fontFamily:MO,textTransform:"uppercase",background:filled?color:color+"18",color:filled?"#fff":color,border:`1px solid ${color}44`,whiteSpace:"nowrap",lineHeight:1.6}}>{children}</span>;
 const Cd=({children,style,T,glow})=><div style={{background:T.card,border:`1px solid ${T.border}`,borderRadius:3,display:"flex",flexDirection:"column",...style}}>{children}</div>;
 const Dot=({color="#00AB8E",size=8,pulse=true})=><span style={{display:"inline-block",width:size,height:size,borderRadius:"50%",background:color,animation:pulse?"bl 2s infinite":"none"}}/>;
-const Lb=({children,T})=><div style={{fontSize:13,fontFamily:MO,color:T.muted,textTransform:"uppercase",letterSpacing:1.5,marginBottom:8,flexShrink:0,fontWeight:600,borderBottom:`1px solid ${T.border}`,paddingBottom:5}}>{children}</div>;
+const Lb=({children,T})=><div style={{fontSize:15,fontFamily:MO,color:T.muted,textTransform:"uppercase",letterSpacing:1.5,marginBottom:10,flexShrink:0,fontWeight:600,borderBottom:`1px solid ${T.border}`,paddingBottom:6}}>{children}</div>;
 const Toggle=({on,onClick,color,T})=>(<div onClick={onClick} style={{width:44,height:22,borderRadius:3,cursor:"pointer",position:"relative",background:on?color+"33":T.card2,border:`1px solid ${on?color+"55":T.border}`,transition:"all .15s"}}><div style={{width:18,height:18,borderRadius:9,position:"absolute",top:1,left:on?23:1,background:on?color:T.muted,transition:"all .15s",boxShadow:on?`0 0 6px ${color}55`:"none"}}/></div>);
 
 // ── OR Zone Map with floating tooltip ──
@@ -442,7 +442,7 @@ function InvScreen({T,pendingItem,onPendingClear,elapsed=0,itemsOverride=null,it
 
       {/* RIGHT: Counts + Zone map + Event feed */}
       <div style={{display:"flex",flexDirection:"column",gap:8,minHeight:0,width:rightW,flexShrink:0,overflow:"hidden"}}>
-        <Cd T={T} style={{padding:10,flexShrink:0,overflow:"visible"}}><Lb T={T}>OR Zone Map</Lb><ORZoneMap T={T} items={VIS} height={200}/></Cd>
+        <Cd T={T} style={{padding:10,flexShrink:0,overflow:"visible"}}><Lb T={T}>Surgical Item — Real Time Location</Lb><ORZoneMap T={T} items={VIS} height={200}/></Cd>
         {/* Count Events Panel */}
         <Cd T={T} style={{padding:10,flexShrink:0}}>
           <Lb T={T}>Counts</Lb>
@@ -597,36 +597,28 @@ function TlScreen({T,as=5,onScreenChange,elapsed=0,phasesData=null,evtsData=null
       </div>
     </Cd>
 
-    {/* MIDDLE: Active state banner + metrics */}
-    <div style={{display:"flex",gap:8,flexShrink:0}}>
-      <Cd T={T} style={{flex:1,padding:"12px 16px",borderLeft:`4px solid ${c}`}}>
-        <div style={{display:"flex",alignItems:"center",justifyContent:"space-between"}}>
-          <div>
-            <div style={{fontSize:12,fontFamily:MO,color:c,textTransform:"uppercase",letterSpacing:2,marginBottom:2}}>Active State — {st.id}/14</div>
-            <div style={{fontSize:26,fontWeight:800,color:T.text,fontFamily:SA}}>{st.l}</div>
-            <div style={{fontSize:14,color:T.soft,marginTop:2}}>{st.g?"Safety Gate — requires confirmation":"Standard Phase"}</div>
-          </div>
-          <div style={{display:"flex",gap:24}}>
-            {(()=>{const _PS=_PH.map(p=>p.offsetStart);const activeDurMin=(elapsed-_PS[as])/60;const bm=_PH[as].benchmark;const phaseOver=bm&&bm>0&&activeDurMin>bm;
-              // ── Unified Alert Aggregation ──
-              const alerts=[];
-              // 1. Inventory alerts (item drops, missing, unresolved)
-              tlAlertDetails.filter(a=>!a.resolved).forEach(a=>alerts.push({type:"inventory",icon:"◆",msg:`${a.name}: ${a.note}`,time:a.t}));
-              // 2. Phase duration alerts (active phase over benchmark)
-              if(phaseOver)alerts.push({type:"phase",icon:"⏱",msg:`${STATES[as].l} exceeded benchmark by ${(activeDurMin-bm).toFixed(1)} min (${activeDurMin.toFixed(1)}/${bm} min)`,time:fmt(elapsed+2071)});
-              // 3. (future alert types go here)
-              const totalAlerts=alerts.length;const alertColor=totalAlerts>0?T.red:T.amber;
-              const alertTip=alerts.length?alerts.map(a=>`${a.icon} [${a.type.toUpperCase()}] ${a.msg}`).join("\n\n"):"No alerts";
-              return[{v:fmt(elapsed+2071),l:"Elapsed",c:T.teal},{v:String(tlTracked),l:"Pieces Tracked",c:T.green},{v:"4",l:"Staff Present",c:T.cyan},{v:String(totalAlerts),l:"Alerts",c:alertColor,tip:alertTip}];})().map((m,i)=>(
-              <div key={i} title={m.tip||""} style={{textAlign:"center",cursor:m.tip?"help":"default"}}>
-                <div style={{fontSize:24,fontWeight:800,fontFamily:MO,color:m.c}}>{m.v}</div>
-                <div style={{fontSize:11,fontFamily:MO,color:T.muted,marginTop:2}}>{m.l}</div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </Cd>
-    </div>
+    {/* MIDDLE: Active state banner — single row */}
+    {(() => {
+      const _PS=_PH.map(p=>p.offsetStart);const activeDurMin=(elapsed-_PS[as])/60;const bm=_PH[as].benchmark;const phaseOver=bm&&bm>0&&activeDurMin>bm;
+      const alerts=[];
+      tlAlertDetails.filter(a=>!a.resolved).forEach(a=>alerts.push({type:"inventory",icon:"◆",msg:`${a.name}: ${a.note}`}));
+      if(phaseOver)alerts.push({type:"phase",icon:"⏱",msg:`${STATES[as].l} exceeded benchmark`});
+      const totalAlerts=alerts.length;const alertColor=totalAlerts>0?T.red:T.amber;
+      const alertTip=alerts.length?alerts.map(a=>`${a.icon} [${a.type.toUpperCase()}] ${a.msg}`).join("\n\n"):"No alerts";
+      return (
+      <div style={{display:"flex",alignItems:"center",gap:14,flexShrink:0,padding:"8px 16px",background:T.card,border:`1px solid ${T.border}`,borderLeft:`4px solid ${c}`,borderRadius:6,whiteSpace:"nowrap"}}>
+        <span style={{fontSize:11,fontFamily:MO,color:c,textTransform:"uppercase",letterSpacing:2,fontWeight:700}}>State {st.id}/14</span>
+        <span style={{fontSize:18,fontWeight:800,color:T.text,fontFamily:SA}}>{st.l}</span>
+        {st.g && <span style={{fontSize:11,fontFamily:MO,color:T.amber,padding:"3px 10px",background:`${T.amber}22`,borderRadius:4,fontWeight:700,letterSpacing:1}}>⚠ SAFETY GATE</span>}
+        <span style={{fontSize:12,color:T.soft}}>{st.g?"Requires confirmation":"Standard Phase"}</span>
+        <span style={{flex:1}}/>
+        <span style={{display:"inline-flex",alignItems:"baseline",gap:4}}><span style={{fontSize:18,fontWeight:800,fontFamily:MO,color:T.teal}}>{fmt(elapsed+2071)}</span><span style={{fontSize:11,fontFamily:MO,color:T.muted}}>Elapsed</span></span>
+        <span style={{display:"inline-flex",alignItems:"baseline",gap:4}}><span style={{fontSize:18,fontWeight:800,fontFamily:MO,color:T.green}}>{tlTracked}</span><span style={{fontSize:11,fontFamily:MO,color:T.muted}}>Tracked</span></span>
+        <span style={{display:"inline-flex",alignItems:"baseline",gap:4}}><span style={{fontSize:18,fontWeight:800,fontFamily:MO,color:T.cyan}}>4</span><span style={{fontSize:11,fontFamily:MO,color:T.muted}}>Staff</span></span>
+        <span title={alertTip} style={{display:"inline-flex",alignItems:"baseline",gap:4,cursor:"help"}}><span style={{fontSize:18,fontWeight:800,fontFamily:MO,color:alertColor}}>{totalAlerts}</span><span style={{fontSize:11,fontFamily:MO,color:T.muted}}>Alerts</span></span>
+      </div>
+      );
+    })()}
 
     {/* BOTTOM: Phase durations (left) | Audio transcription (middle) | Event log + OR diagram (right, draggable) */}
     <div style={{display:"flex",gap:0,flex:1,minHeight:0}}>
@@ -721,7 +713,7 @@ function TlScreen({T,as=5,onScreenChange,elapsed=0,phasesData=null,evtsData=null
       {/* RIGHT: OR Diagram + Event Log */}
       <div style={{display:"flex",flexDirection:"column",gap:8,minHeight:0,width:tlRightW,flexShrink:0,overflow:"hidden"}}>
         {/* OR Zone Map — same as inventory */}
-        <Cd T={T} style={{padding:10,flexShrink:0,overflow:"visible"}}><Lb T={T}>OR Zone Map</Lb><ORZoneMap T={T} items={tlVIS} height={200}/></Cd>
+        <Cd T={T} style={{padding:10,flexShrink:0,overflow:"visible"}}><Lb T={T}>Surgical Item — Real Time Location</Lb><ORZoneMap T={T} items={tlVIS} height={200}/></Cd>
 
         {/* Event Log */}
         <Cd T={T} style={{flex:1,padding:0,minHeight:0,overflow:"hidden"}}>
