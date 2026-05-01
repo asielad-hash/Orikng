@@ -338,9 +338,13 @@ function ORZoneMap({T,items,height=180}) {
     return layoutDefaults;
   });
   useEffect(()=>{try{localStorage.setItem("or_layout_v2",JSON.stringify(layout));}catch{}},[layout]);
+  const [history,setHistory]=useState([]);
+  const pushHistory=()=>setHistory(h=>[...h.slice(-29),layout]);
+  const undo=()=>{setHistory(h=>{if(h.length===0)return h;setLayout(h[h.length-1]);return h.slice(0,-1);});};
   const onDrag=(key,clampW=0,clampH=0)=>(e)=>{
     e.stopPropagation();
     if(!mapRef.current)return;
+    pushHistory();
     const rect=mapRef.current.getBoundingClientRect();
     const isTouch=!!e.touches;
     const startX=isTouch?e.touches[0].clientX:e.clientX;
@@ -363,6 +367,7 @@ function ORZoneMap({T,items,height=180}) {
   const onResize=(key)=>(e)=>{
     e.stopPropagation();
     if(!mapRef.current)return;
+    pushHistory();
     const rect=mapRef.current.getBoundingClientRect();
     const isTouch=!!e.touches;
     const startX=isTouch?e.touches[0].clientX:e.clientX;
@@ -386,25 +391,26 @@ function ORZoneMap({T,items,height=180}) {
   const onDragDoor=(idx)=>(e)=>{
     e.stopPropagation();
     if(!mapRef.current)return;
+    pushHistory();
     const rect=mapRef.current.getBoundingClientRect();
     const isTouch=!!e.touches;
     const startX=isTouch?e.touches[0].clientX:e.clientX;
     const startY=isTouch?e.touches[0].clientY:e.clientY;
     const start=layout.doors[idx];
-    // All doors share a single square footprint so both walls look uniform
-    const D=12;
+    // Long side runs along the wall; short side sticks into the room
+    const SHORT=18,LONG=26;
     const move=(ev)=>{
       const cx=ev.touches?ev.touches[0].clientX:ev.clientX;
       const cy=ev.touches?ev.touches[0].clientY:ev.clientY;
       let nl=start.l+((cx-startX)/rect.width)*100;
       let nt=start.t+((cy-startY)/rect.height)*100;
-      const dT=Math.abs(nt),dB=Math.abs((100-D)-nt),dL=Math.abs(nl),dR=Math.abs((100-D)-nl);
+      const dT=Math.abs(nt),dB=Math.abs((100-SHORT)-nt),dL=Math.abs(nl),dR=Math.abs((100-SHORT)-nl);
       const minD=Math.min(dT,dB,dL,dR);
-      let wall;
-      if(minD===dT){wall="top";nt=0;nl=Math.max(0,Math.min(100-D,nl));}
-      else if(minD===dB){wall="bottom";nt=100-D;nl=Math.max(0,Math.min(100-D,nl));}
-      else if(minD===dL){wall="left";nl=0;nt=Math.max(0,Math.min(100-D,nt));}
-      else{wall="right";nl=100-D;nt=Math.max(0,Math.min(100-D,nt));}
+      let wall,iW,iH;
+      if(minD===dT){wall="top";iW=LONG;iH=SHORT;nt=0;nl=Math.max(0,Math.min(100-iW,nl));}
+      else if(minD===dB){wall="bottom";iW=LONG;iH=SHORT;nt=100-iH;nl=Math.max(0,Math.min(100-iW,nl));}
+      else if(minD===dL){wall="left";iW=SHORT;iH=LONG;nl=0;nt=Math.max(0,Math.min(100-iH,nt));}
+      else{wall="right";iW=SHORT;iH=LONG;nl=100-iW;nt=Math.max(0,Math.min(100-iH,nt));}
       setLayout(p=>({...p,doors:p.doors.map((d,i)=>i===idx?{...d,l:nl,t:nt,wall}:d)}));
       if(ev.touches)ev.preventDefault();
     };
@@ -415,6 +421,7 @@ function ORZoneMap({T,items,height=180}) {
   const onDragBed=(e)=>{
     e.stopPropagation();
     if(!mapRef.current)return;
+    pushHistory();
     const rect=mapRef.current.getBoundingClientRect();
     const isTouch=!!e.touches;
     const startX=isTouch?e.touches[0].clientX:e.clientX;
@@ -437,20 +444,31 @@ function ORZoneMap({T,items,height=180}) {
   const onRotate=(e)=>{
     e.stopPropagation();
     if(!mapRef.current)return;
+    pushHistory();
     const rect=mapRef.current.getBoundingClientRect();
     const bx=(layout.bed?.cx||47.5)/100;
     const by=(layout.bed?.cy||50)/100;
     const cx=rect.left+rect.width*bx;
     const cy=rect.top+rect.height*by;
+    const isTouch=!!e.touches;
+    const startX=isTouch?e.touches[0].clientX:e.clientX;
+    const startY=isTouch?e.touches[0].clientY:e.clientY;
+    let moved=false;
     const move=(ev)=>{
       const px=ev.touches?ev.touches[0].clientX:ev.clientX;
       const py=ev.touches?ev.touches[0].clientY:ev.clientY;
+      if(!moved&&(Math.abs(px-startX)>6||Math.abs(py-startY)>6))moved=true;
+      if(!moved)return;
       let angle=Math.atan2(py-cy,px-cx)*180/Math.PI+90;
       angle=Math.round(angle/5)*5;
       setLayout(p=>({...p,bedAngle:angle}));
       if(ev.touches)ev.preventDefault();
     };
-    const up=()=>{document.removeEventListener("mousemove",move);document.removeEventListener("mouseup",up);document.removeEventListener("touchmove",move);document.removeEventListener("touchend",up);};
+    const up=()=>{
+      document.removeEventListener("mousemove",move);document.removeEventListener("mouseup",up);
+      document.removeEventListener("touchmove",move);document.removeEventListener("touchend",up);
+      if(!moved){setLayout(p=>({...p,bedAngle:((p.bedAngle||0)+90)%360}));}
+    };
     document.addEventListener("mousemove",move);document.addEventListener("mouseup",up);
     document.addEventListener("touchmove",move,{passive:false});document.addEventListener("touchend",up);
   };
@@ -525,6 +543,8 @@ function ORZoneMap({T,items,height=180}) {
           <text x="95" y="93.5" textAnchor="middle" fontSize="2.6" fill={T.cyan} fontFamily="ui-monospace,monospace" fontWeight="700" transform={`rotate(${-(layout.bedAngle||0)} 95 93.5)`}>ANESTHESIA</text>
         </g>
       </svg>
+      {/* Undo button — top-right */}
+      <button onClick={undo} disabled={history.length===0} title={history.length===0?"Nothing to undo":`Undo (${history.length})`} style={{position:"absolute",top:6,right:6,zIndex:9,width:32,height:32,borderRadius:"50%",background:history.length===0?T.card2:T.card,border:`1px solid ${T.border}`,cursor:history.length===0?"not-allowed":"pointer",fontSize:16,color:history.length===0?T.muted:T.text,display:"flex",alignItems:"center",justifyContent:"center",lineHeight:1,opacity:history.length===0?0.4:1,boxShadow:"0 1px 3px rgba(0,0,0,0.15)"}}>↶</button>
       {/* Sterile field — draggable rectangle with label handle + resize handle */}
       <div style={{position:"absolute",left:`${layout.sf.l}%`,top:`${layout.sf.t}%`,width:`${layout.sf.w}%`,height:`${layout.sf.h}%`,border:`1.5px dashed ${T.teal}88`,borderRadius:4,pointerEvents:"none",zIndex:1}}>
         <div onMouseDown={onDrag("sf",layout.sf.w,layout.sf.h)} onTouchStart={onDrag("sf",layout.sf.w,layout.sf.h)} title="Sterile Field — drag to move" style={{position:"absolute",top:-9,left:6,fontSize:9,fontFamily:MO,color:T.teal,background:floorBg,padding:"2px 6px",fontWeight:700,letterSpacing:1,pointerEvents:"auto",cursor:"move",border:`1px solid ${T.teal}66`,borderRadius:2,touchAction:"none"}}>STERILE FIELD</div>
@@ -533,7 +553,9 @@ function ORZoneMap({T,items,height=180}) {
       {/* Doors — draggable floor-plan icons that flip to match their wall */}
       {(layout.doors||[]).map((d,i)=>{
         const wall=d.wall||"left";
-        const w=12,h=12;
+        const isHorizontal=wall==="top"||wall==="bottom";
+        const w=isHorizontal?26:18;
+        const h=isHorizontal?18:26;
         const rot={left:0,top:90,right:180,bottom:270}[wall];
         return(
           <div key={i} onMouseDown={onDragDoor(i)} onTouchStart={onDragDoor(i)} title={`Door ${i+1} — drag to a wall`} style={{position:"absolute",left:`${d.l}%`,top:`${d.t}%`,width:`${w}%`,height:`${h}%`,cursor:"move",zIndex:4,userSelect:"none",touchAction:"none"}}>
@@ -560,8 +582,8 @@ function ORZoneMap({T,items,height=180}) {
       {zoneDiv("m",{left:`${layout.m.l}%`,top:`${layout.m.t}%`,width:`${layout.m.w}%`,height:`${layout.m.h}%`},"MAYO",originCount(mOnM,bOnM),MC,bM>0?<span style={{fontSize:8,fontFamily:MO,color:T.muted,pointerEvents:"none"}}>base <span style={{color:MC,fontWeight:700}}>{bM}</span></span>:null,onDrag("m",layout.m.w,layout.m.h),true)}
       {zoneDiv("b",{left:`${layout.b.l}%`,top:`${layout.b.t}%`,width:`${layout.b.w}%`,height:`${layout.b.h}%`},"BACK TABLE",originCount(mOnB,bOnB),BC,bB>0?<span style={{fontSize:8,fontFamily:MO,color:T.muted,pointerEvents:"none"}}>base <span style={{color:BC,fontWeight:700}}>{bB}</span></span>:null,onDrag("b",layout.b.w,layout.b.h),true)}
       {zoneDiv("d",{left:`${layout.d.l}%`,top:`${layout.d.t}%`,width:`${layout.d.w}%`,height:`${layout.d.h}%`},"DISPOSED",originCount(mOnD,bOnD),T.amber,null,onDrag("d",layout.d.w,layout.d.h),true)}
-      {/* Rotation knob — at patient/bed pivot, follows bed position */}
-      <div onMouseDown={onRotate} onTouchStart={onRotate} title="Drag in a circle to rotate the bed" style={{position:"absolute",left:`${layout.bed?.cx||47.5}%`,top:`${layout.bed?.cy||50}%`,transform:"translate(-50%,-50%)",width:34,height:34,borderRadius:"50%",background:T.purple+"22",border:`1.5px dashed ${T.purple}`,display:"flex",alignItems:"center",justifyContent:"center",cursor:"grab",zIndex:8,fontSize:18,color:T.purple,userSelect:"none",touchAction:"none",fontWeight:700}}>↻</div>
+      {/* Rotation knob — tap rotates 90° CW; drag in a circle for free rotation */}
+      <div onMouseDown={onRotate} onTouchStart={onRotate} title="Tap to rotate 90° • drag in a circle for free rotation" style={{position:"absolute",left:`${layout.bed?.cx||47.5}%`,top:`${layout.bed?.cy||50}%`,transform:"translate(-50%,-50%)",width:44,height:44,borderRadius:"50%",background:T.purple+"2a",border:`1.5px dashed ${T.purple}`,display:"flex",alignItems:"center",justifyContent:"center",cursor:"grab",zIndex:8,fontSize:22,color:T.purple,userSelect:"none",touchAction:"none",fontWeight:700}}>↻</div>
     </div>
     {/* Floating tooltip popup — anchored near the hovered zone */}
     {hover&&tipD.length>0&&(()=>{const z=hover==="p"?{l:(layout.bed?.cx||47.5)-10.5,t:(layout.bed?.cy||50)-27.5,w:21,h:55}:layout[hover];if(!z)return null;const cx=z.l+z.w/2;const placeRight=cx<50;const anchor=placeRight?{left:`${Math.min(99,z.l+z.w+1)}%`,top:`${z.t}%`}:{right:`${Math.min(99,100-z.l+1)}%`,top:`${z.t}%`};return(<div onMouseEnter={()=>setHover(hover)} onMouseLeave={()=>setHover(null)} style={{position:"absolute",zIndex:100,background:T.card,border:`2px solid ${zoneColors[hover]}`,borderRadius:4,padding:"8px 10px",overflowY:"auto",boxShadow:"0 4px 16px rgba(0,0,0,0.25)",...anchor,width:"max-content",minWidth:160,maxWidth:`calc(${placeRight?100-z.l-z.w-2:z.l-1}% - 8px)`,maxHeight:`calc(${100-z.t}% - 8px)`}}>
