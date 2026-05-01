@@ -181,7 +181,7 @@ function GridOverlay({visible}) {
 const GRID_SIZE=10; // pixel grid (snap unit)
 const snap=v=>Math.round(v/GRID_SIZE)*GRID_SIZE;
 
-function FloatingPanel({panel,update,bringToFront,T,children,headerColor,onInteractStart,onInteractEnd}) {
+function FloatingPanel({panel,update,bringToFront,T,children,headerColor,icon,onInteractStart,onInteractEnd}) {
   const dragRef=useRef(null);
   const onDragStart=e=>{
     bringToFront(panel.id);
@@ -230,7 +230,8 @@ function FloatingPanel({panel,update,bringToFront,T,children,headerColor,onInter
   const handle=(edge,style,extra={})=>{const fn=onResizeStart(edge);return{onMouseDown:fn,onTouchStart:fn,style:{position:"absolute",touchAction:"none",zIndex:3,...style,...extra}};};
   return(<div onMouseDown={()=>bringToFront(panel.id)} onTouchStart={()=>bringToFront(panel.id)} style={{position:"absolute",left:panel.x,top:panel.y,width:panel.w,height:panel.h,zIndex:panel.z||1,background:T.card,border:`1px solid ${T.border}`,borderRadius:4,boxShadow:"0 4px 16px rgba(0,0,0,0.18)",display:"flex",flexDirection:"column",overflow:"hidden"}}>
     <div ref={dragRef} onMouseDown={onDragStart} onTouchStart={onDragStart} onMouseEnter={()=>bringToFront(panel.id)} style={{display:"flex",alignItems:"center",gap:6,padding:"6px 10px",background:T.card2,borderBottom:`2px solid ${hc}`,cursor:"grab",userSelect:"none",touchAction:"none",flexShrink:0}}>
-      <span style={{fontSize:11,fontFamily:MO,color:T.muted,letterSpacing:1}}>⋮⋮</span>
+      <span style={{fontSize:10,fontFamily:MO,color:T.muted,letterSpacing:1}}>⋮⋮</span>
+      {icon&&<span style={{fontSize:16,lineHeight:1,display:"inline-flex",alignItems:"center"}}>{icon}</span>}
       <span style={{flex:1,fontSize:13,fontWeight:700,color:T.text,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{panel.title}</span>
       <button {...stopBtn} onClick={e=>{e.stopPropagation();setZoom(-0.1);}} title="Smaller text" style={{background:"none",border:"none",color:T.muted,cursor:"pointer",fontSize:11,padding:"2px 5px",lineHeight:1,fontFamily:MO,fontWeight:700}}>A−</button>
       <span style={{fontSize:9,fontFamily:MO,color:T.muted,minWidth:26,textAlign:"center"}} title="Zoom level">{Math.round(z*100)}%</span>
@@ -255,10 +256,61 @@ function FloatingPanel({panel,update,bringToFront,T,children,headerColor,onInter
   </div>);
 }
 
+// PanelLauncher — floating action button that fans out icons for each panel.
+// Tap an icon to bring that panel to front (restoring it if minimized).
+function PanelLauncher({panels,update,bringToFront,T,meta}) {
+  const [open,setOpen]=useState(false);
+  const n=panels.length;
+  const r=80+n*12;
+  const fabSize=52;
+  const itemSize=42;
+  const itemPos=(i)=>{
+    const t=n===1?0.5:i/(n-1);
+    const angle=(Math.PI/2)*t;
+    return {left:14+(fabSize-itemSize)/2+r*Math.sin(angle),bottom:14+(fabSize-itemSize)/2+r*Math.cos(angle)};
+  };
+  const handleClick=(p)=>{if(p.minimized)update(p.id,{minimized:false});bringToFront(p.id);setOpen(false);};
+  return(<>
+    {open&&<div onClick={()=>setOpen(false)} style={{position:"absolute",inset:0,zIndex:9989,background:"rgba(0,0,0,0.08)",cursor:"default"}}/>}
+    {panels.map((p,i)=>{
+      const pos=open?itemPos(i):{left:14+(fabSize-itemSize)/2,bottom:14+(fabSize-itemSize)/2};
+      const m=meta&&meta[p.id]||{};
+      const c=(m.c&&T[m.c])||T.teal;
+      const icon=m.i;
+      const initials=p.title.replace(/[—–\-:].*/,"").trim().split(/\s+/).slice(0,2).map(s=>s[0]).join("").toUpperCase();
+      const display=icon||initials||"·";
+      return(<button key={p.id} onClick={()=>handleClick(p)} title={p.title} style={{
+        position:"absolute",left:pos.left,bottom:pos.bottom,
+        width:itemSize,height:itemSize,borderRadius:"50%",
+        background:T.card,color:c,border:`2px solid ${c}`,
+        cursor:"pointer",
+        opacity:open?(p.minimized?0.7:1):0,
+        transform:`scale(${open?1:0.3})`,
+        transition:`left .28s cubic-bezier(.34,1.56,.64,1) ${i*22}ms, bottom .28s cubic-bezier(.34,1.56,.64,1) ${i*22}ms, opacity .2s ${open?i*30:0}ms, transform .25s`,
+        pointerEvents:open?"auto":"none",
+        zIndex:9991,
+        fontSize:icon?20:13,fontWeight:icon?400:800,fontFamily:icon?"system-ui":MO,letterSpacing:icon?0:0.5,lineHeight:1,
+        boxShadow:`0 3px 10px rgba(0,0,0,0.28), 0 0 0 4px ${c}1f`,
+        display:"flex",alignItems:"center",justifyContent:"center",
+      }}>{display}{p.minimized&&<span style={{position:"absolute",top:-2,right:-2,width:8,height:8,borderRadius:"50%",background:T.muted,border:`1.5px solid ${T.card}`}}/>}</button>);
+    })}
+    <button onClick={()=>setOpen(o=>!o)} title={open?"Close":"Panels"} style={{
+      position:"absolute",left:14,bottom:14,
+      width:fabSize,height:fabSize,borderRadius:"50%",
+      background:open?T.red:T.teal,color:"#fff",border:"none",cursor:"pointer",
+      boxShadow:"0 4px 14px rgba(0,0,0,0.35)",zIndex:9992,
+      fontSize:26,fontWeight:300,lineHeight:1,
+      transform:`rotate(${open?45:0}deg)`,
+      transition:"transform .25s, background .2s",
+      display:"flex",alignItems:"center",justifyContent:"center",
+    }}>+</button>
+  </>);
+}
+
 function MinimizedTray({panels,update,T}) {
   const mins=panels.filter(p=>p.minimized);
   if(mins.length===0)return null;
-  return(<div style={{position:"absolute",left:8,bottom:8,display:"flex",gap:6,zIndex:9999,flexWrap:"wrap"}}>
+  return(<div style={{position:"absolute",right:8,bottom:8,display:"flex",gap:6,zIndex:9999,flexWrap:"wrap"}}>
     {mins.map(p=><button key={p.id} onClick={()=>update(p.id,{minimized:false})} title={`Restore ${p.title}`} style={{padding:"6px 12px",background:T.card,border:`1px solid ${T.border}`,borderTop:`2px solid ${T.teal}`,borderRadius:3,color:T.text,fontSize:12,fontWeight:600,cursor:"pointer",whiteSpace:"nowrap",fontFamily:SA,boxShadow:"0 2px 6px rgba(0,0,0,0.15)"}}>▢ {p.title}</button>)}
   </div>);
 }
@@ -268,6 +320,141 @@ function ORZoneMap({T,items,height=180}) {
   const [hover,setHover]=useState(null);
   const [expanded,setExpanded]=useState(false);
   const mapRef=useRef(null);
+  const layoutDefaults={
+    m:{l:60,t:66,w:12,h:18},
+    b:{l:75,t:8,w:22,h:60},
+    d:{l:75,t:73,w:18,h:22},
+    sf:{l:16,t:5,w:60,h:78},
+    doors:[{l:1,t:70,wall:"left"},{l:1,t:18,wall:"left"}],
+    srg:{l:62,t:50},
+    ast:{l:32,t:50},
+    scr:{l:47,t:18},
+    cir:{l:12,t:88},
+    bed:{cx:47.5,cy:50},
+    bedAngle:0,
+  };
+  const [layout,setLayout]=useState(()=>{
+    try{const s=localStorage.getItem("or_layout_v2");if(s)return {...layoutDefaults,...JSON.parse(s)};}catch{}
+    return layoutDefaults;
+  });
+  useEffect(()=>{try{localStorage.setItem("or_layout_v2",JSON.stringify(layout));}catch{}},[layout]);
+  const onDrag=(key,clampW=0,clampH=0)=>(e)=>{
+    e.stopPropagation();
+    if(!mapRef.current)return;
+    const rect=mapRef.current.getBoundingClientRect();
+    const isTouch=!!e.touches;
+    const startX=isTouch?e.touches[0].clientX:e.clientX;
+    const startY=isTouch?e.touches[0].clientY:e.clientY;
+    const start=layout[key];
+    const move=(ev)=>{
+      const cx=ev.touches?ev.touches[0].clientX:ev.clientX;
+      const cy=ev.touches?ev.touches[0].clientY:ev.clientY;
+      const dxPct=((cx-startX)/rect.width)*100;
+      const dyPct=((cy-startY)/rect.height)*100;
+      const nl=Math.max(0,Math.min(100-clampW,start.l+dxPct));
+      const nt=Math.max(0,Math.min(100-clampH,start.t+dyPct));
+      setLayout(p=>({...p,[key]:{...p[key],l:nl,t:nt}}));
+      if(ev.touches)ev.preventDefault();
+    };
+    const up=()=>{document.removeEventListener("mousemove",move);document.removeEventListener("mouseup",up);document.removeEventListener("touchmove",move);document.removeEventListener("touchend",up);};
+    document.addEventListener("mousemove",move);document.addEventListener("mouseup",up);
+    document.addEventListener("touchmove",move,{passive:false});document.addEventListener("touchend",up);
+  };
+  const onResize=(key)=>(e)=>{
+    e.stopPropagation();
+    if(!mapRef.current)return;
+    const rect=mapRef.current.getBoundingClientRect();
+    const isTouch=!!e.touches;
+    const startX=isTouch?e.touches[0].clientX:e.clientX;
+    const startY=isTouch?e.touches[0].clientY:e.clientY;
+    const start=layout[key];
+    const MAX_RIGHT=99,MAX_BOT=99;
+    const move=(ev)=>{
+      const cx=ev.touches?ev.touches[0].clientX:ev.clientX;
+      const cy=ev.touches?ev.touches[0].clientY:ev.clientY;
+      const dxPct=((cx-startX)/rect.width)*100;
+      const dyPct=((cy-startY)/rect.height)*100;
+      const nw=Math.max(6,Math.min(MAX_RIGHT-start.l,start.w+dxPct));
+      const nh=Math.max(6,Math.min(MAX_BOT-start.t,start.h+dyPct));
+      setLayout(p=>({...p,[key]:{...p[key],w:nw,h:nh}}));
+      if(ev.touches)ev.preventDefault();
+    };
+    const up=()=>{document.removeEventListener("mousemove",move);document.removeEventListener("mouseup",up);document.removeEventListener("touchmove",move);document.removeEventListener("touchend",up);};
+    document.addEventListener("mousemove",move);document.addEventListener("mouseup",up);
+    document.addEventListener("touchmove",move,{passive:false});document.addEventListener("touchend",up);
+  };
+  const onDragDoor=(idx)=>(e)=>{
+    e.stopPropagation();
+    if(!mapRef.current)return;
+    const rect=mapRef.current.getBoundingClientRect();
+    const isTouch=!!e.touches;
+    const startX=isTouch?e.touches[0].clientX:e.clientX;
+    const startY=isTouch?e.touches[0].clientY:e.clientY;
+    const start=layout.doors[idx];
+    // All doors share a single square footprint so both walls look uniform
+    const D=12;
+    const move=(ev)=>{
+      const cx=ev.touches?ev.touches[0].clientX:ev.clientX;
+      const cy=ev.touches?ev.touches[0].clientY:ev.clientY;
+      let nl=start.l+((cx-startX)/rect.width)*100;
+      let nt=start.t+((cy-startY)/rect.height)*100;
+      const dT=Math.abs(nt),dB=Math.abs((100-D)-nt),dL=Math.abs(nl),dR=Math.abs((100-D)-nl);
+      const minD=Math.min(dT,dB,dL,dR);
+      let wall;
+      if(minD===dT){wall="top";nt=0;nl=Math.max(0,Math.min(100-D,nl));}
+      else if(minD===dB){wall="bottom";nt=100-D;nl=Math.max(0,Math.min(100-D,nl));}
+      else if(minD===dL){wall="left";nl=0;nt=Math.max(0,Math.min(100-D,nt));}
+      else{wall="right";nl=100-D;nt=Math.max(0,Math.min(100-D,nt));}
+      setLayout(p=>({...p,doors:p.doors.map((d,i)=>i===idx?{...d,l:nl,t:nt,wall}:d)}));
+      if(ev.touches)ev.preventDefault();
+    };
+    const up=()=>{document.removeEventListener("mousemove",move);document.removeEventListener("mouseup",up);document.removeEventListener("touchmove",move);document.removeEventListener("touchend",up);};
+    document.addEventListener("mousemove",move);document.addEventListener("mouseup",up);
+    document.addEventListener("touchmove",move,{passive:false});document.addEventListener("touchend",up);
+  };
+  const onDragBed=(e)=>{
+    e.stopPropagation();
+    if(!mapRef.current)return;
+    const rect=mapRef.current.getBoundingClientRect();
+    const isTouch=!!e.touches;
+    const startX=isTouch?e.touches[0].clientX:e.clientX;
+    const startY=isTouch?e.touches[0].clientY:e.clientY;
+    const start=layout.bed||{cx:47.5,cy:50};
+    const move=(ev)=>{
+      const cx=ev.touches?ev.touches[0].clientX:ev.clientX;
+      const cy=ev.touches?ev.touches[0].clientY:ev.clientY;
+      const dxPct=((cx-startX)/rect.width)*100;
+      const dyPct=((cy-startY)/rect.height)*100;
+      const ncx=Math.max(15,Math.min(85,start.cx+dxPct));
+      const ncy=Math.max(28,Math.min(78,start.cy+dyPct));
+      setLayout(p=>({...p,bed:{cx:ncx,cy:ncy}}));
+      if(ev.touches)ev.preventDefault();
+    };
+    const up=()=>{document.removeEventListener("mousemove",move);document.removeEventListener("mouseup",up);document.removeEventListener("touchmove",move);document.removeEventListener("touchend",up);};
+    document.addEventListener("mousemove",move);document.addEventListener("mouseup",up);
+    document.addEventListener("touchmove",move,{passive:false});document.addEventListener("touchend",up);
+  };
+  const onRotate=(e)=>{
+    e.stopPropagation();
+    if(!mapRef.current)return;
+    const rect=mapRef.current.getBoundingClientRect();
+    const bx=(layout.bed?.cx||47.5)/100;
+    const by=(layout.bed?.cy||50)/100;
+    const cx=rect.left+rect.width*bx;
+    const cy=rect.top+rect.height*by;
+    const move=(ev)=>{
+      const px=ev.touches?ev.touches[0].clientX:ev.clientX;
+      const py=ev.touches?ev.touches[0].clientY:ev.clientY;
+      let angle=Math.atan2(py-cy,px-cx)*180/Math.PI+90;
+      angle=Math.round(angle/5)*5;
+      setLayout(p=>({...p,bedAngle:angle}));
+      if(ev.touches)ev.preventDefault();
+    };
+    const up=()=>{document.removeEventListener("mousemove",move);document.removeEventListener("mouseup",up);document.removeEventListener("touchmove",move);document.removeEventListener("touchend",up);};
+    document.addEventListener("mousemove",move);document.addEventListener("mouseup",up);
+    document.addEventListener("touchmove",move,{passive:false});document.addEventListener("touchend",up);
+  };
+  const resizeHandle=(key,color)=>(<div onMouseDown={onResize(key)} onTouchStart={onResize(key)} title="Resize" style={{position:"absolute",bottom:0,right:0,width:14,height:14,cursor:"nwse-resize",zIndex:6,touchAction:"none",pointerEvents:"auto"}}><svg width="14" height="14" viewBox="0 0 14 14" style={{pointerEvents:"none"}}><path d="M 12 12 L 12 8 M 12 12 L 8 12 M 12 12 L 12 3 M 12 12 L 3 12" stroke={color||T.muted} strokeWidth="1.2" fill="none" strokeLinecap="round"/></svg></div>);
   const bM=items.filter(i=>i.z==="mayo").reduce((s,i)=>s+i.init,0),bB=items.filter(i=>i.z==="back_table").reduce((s,i)=>s+i.init,0);
   // Origin tracking: how many from each home zone are in each current zone
   const mOnM=items.filter(i=>i.z==="mayo").reduce((s,i)=>s+i.loc.m,0);           // mayo-origin on mayo
@@ -306,20 +493,78 @@ function ORZoneMap({T,items,height=180}) {
   const zoneNames={m:"Mayo Stand",b:"Back Table",p:"Patient",d:"Disposed"};
   const zoneColors={m:MC,b:BC,p:T.purple,d:T.amber};
   const onZoneEnter=(zk)=>{setHover(zk);};
-  const zoneDiv=(zk,pos,label,count,color,extra)=>(<div onMouseEnter={()=>onZoneEnter(zk)} onMouseLeave={()=>setHover(null)} style={{position:"absolute",...pos,border:`2px solid ${color}44`,borderRadius:3,background:hover===zk?color+"22":color+"08",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",cursor:"pointer",zIndex:2,transition:"background .15s"}}><span style={{fontSize:11,fontFamily:MO,color,fontWeight:700,textTransform:"uppercase",letterSpacing:1,pointerEvents:"none"}}>{label}</span><span style={{fontSize:22,fontFamily:MO,fontWeight:800,pointerEvents:"none"}}>{count}</span>{extra}</div>);
+  const zoneDiv=(zk,pos,label,count,color,extra,dragHandler,resizable)=>(<div onMouseEnter={()=>onZoneEnter(zk)} onMouseLeave={()=>setHover(null)} onMouseDown={dragHandler} onTouchStart={dragHandler} style={{position:"absolute",...pos,border:hover===zk?`1.5px solid ${color}`:`1px dashed ${color}55`,borderRadius:3,background:hover===zk?color+"24":"transparent",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",cursor:dragHandler?"move":"pointer",zIndex:5,transition:"background .15s, border-color .15s",touchAction:dragHandler?"none":undefined,userSelect:"none"}}><span style={{fontSize:10,fontFamily:MO,color,fontWeight:700,textTransform:"uppercase",letterSpacing:1.2,pointerEvents:"none",lineHeight:1.2,textShadow:T.n==="dark"?"0 1px 2px rgba(0,0,0,.7)":"0 1px 2px rgba(255,255,255,.85)"}}>{label}</span><span style={{fontSize:20,fontFamily:MO,fontWeight:800,pointerEvents:"none",lineHeight:1.1,marginTop:2,textShadow:T.n==="dark"?"0 1px 2px rgba(0,0,0,.7)":"0 1px 2px rgba(255,255,255,.85)"}}>{count}</span>{extra}{resizable&&resizeHandle(zk,color)}</div>);
   const tipD=hover?tipData(hover):[];
   const isFlex=height==="100%";
+  const isDark=T.n==="dark";
+  const floorBg=isDark?"#0a0f14":"#eef2f6";
+  const wallC=isDark?"#1c2935":"#94a3b8";
   return(<div ref={mapRef} style={{position:"relative",height:isFlex?"100%":undefined,display:isFlex?"flex":undefined,flexDirection:isFlex?"column":undefined}}>
-    <div style={{background:T.n==="dark"?"#0a0f14":"#e2e8f0",borderRadius:3,height:isFlex?"100%":height,flex:isFlex?1:undefined,minHeight:isFlex?0:undefined,position:"relative",overflow:"hidden",border:`1px solid ${T.border}`}}>
-      {zoneDiv("p",{left:"20%",top:"20%",width:"40%",height:"55%"},"PATIENT",originCount(mOnP,bOnP),T.purple,<span style={{fontSize:8,fontFamily:MO,color:T.purple+"88",pointerEvents:"none"}}>pieces</span>)}
-      {zoneDiv("m",{left:"4%",top:"5%",width:"14%",height:"35%"},"MAYO",originCount(mOnM,bOnM),MC,bM>0?<span style={{fontSize:10,fontFamily:MO,color:T.muted,pointerEvents:"none"}}>baseline <span style={{color:MC,fontWeight:700}}>{bM}</span></span>:null)}
-      {zoneDiv("b",{left:"65%",top:"8%",width:"30%",height:"55%"},"BACK TABLE",originCount(mOnB,bOnB),BC,bB>0?<span style={{fontSize:10,fontFamily:MO,color:T.muted,pointerEvents:"none"}}>baseline <span style={{color:BC,fontWeight:700}}>{bB}</span></span>:null)}
-      {zoneDiv("d",{left:"70%",top:"68%",width:"22%",height:"26%"},"DISPOSED",originCount(mOnD,bOnD),T.amber)}
-      {[{x:32,y:28,r:"SRG"},{x:48,y:28,r:"AST"},{x:25,y:68,r:"SCR"},{x:62,y:50,r:"CIR"}].map((s,i)=>(<div key={i} style={{position:"absolute",left:`${s.x}%`,top:`${s.y}%`,transform:"translate(-50%,-50%)",width:20,height:20,borderRadius:"50%",background:T.cyan+"18",border:`1px solid ${T.cyan}44`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:7,fontFamily:MO,color:T.cyan,fontWeight:800,pointerEvents:"none"}}>{s.r}</div>))}
-      <div style={{position:"absolute",left:"3%",top:"3%",width:"60%",height:"92%",border:`1px dashed ${T.teal}33`,borderRadius:3,pointerEvents:"none"}}><span style={{position:"absolute",top:-1,left:6,fontSize:8,fontFamily:MO,color:T.teal,background:T.n==="dark"?"#0a0f14":"#e2e8f0",padding:"0 3px"}}>STERILE FIELD</span></div>
+    <div style={{background:floorBg,borderRadius:4,height:isFlex?"100%":height,flex:isFlex?1:undefined,minHeight:isFlex?0:undefined,position:"relative",overflow:"hidden",border:`1px solid ${T.border}`}}>
+      {/* SVG decorative floor plan layer (no circles to avoid stretch artifacts) */}
+      <svg viewBox="0 0 200 120" preserveAspectRatio="none" style={{position:"absolute",inset:0,width:"100%",height:"100%",pointerEvents:"none"}}>
+        <defs>
+          <pattern id="orgrid" x="0" y="0" width="10" height="10" patternUnits="userSpaceOnUse">
+            <path d="M 10 0 L 0 0 0 10" fill="none" stroke={T.border} strokeWidth="0.15" opacity="0.5"/>
+          </pattern>
+        </defs>
+        <rect width="200" height="120" fill="url(#orgrid)"/>
+        {/* Outer wall */}
+        <rect x="2" y="2" width="196" height="116" fill="none" stroke={wallC} strokeWidth="1" opacity="0.7"/>
+        {/* Bed + Anesthesia — translate by bed offset, then rotate around their centroid (95, 60) */}
+        <g transform={`translate(${((layout.bed?.cx||47.5)-47.5)*2} ${((layout.bed?.cy||50)-50)*1.2}) rotate(${layout.bedAngle||0} 95 60)`}>
+          {/* OR table */}
+          <rect x="74" y="20" width="42" height="58" fill={isDark?"#1a2330":"#dbe2ea"} stroke={wallC} strokeWidth="0.5"/>
+          <rect x="78" y="24" width="34" height="50" fill={isDark?"#212d3a":"#cdd6e0"}/>
+          <rect x="80" y="28" width="30" height="42" fill={T.purple} opacity="0.18"/>
+          {/* Anesthesia at head end */}
+          <rect x="74" y="84" width="42" height="14" fill={isDark?"#1a2330":"#cfd8e3"} stroke={T.cyan} strokeWidth="0.5" opacity="0.85"/>
+          <rect x="78" y="87" width="6" height="4" fill={T.cyan} opacity="0.45"/>
+          <rect x="86" y="87" width="6" height="4" fill={T.cyan} opacity="0.45"/>
+          <rect x="94" y="87" width="6" height="4" fill={T.cyan} opacity="0.45"/>
+          <text x="95" y="93.5" textAnchor="middle" fontSize="2.6" fill={T.cyan} fontFamily="ui-monospace,monospace" fontWeight="700" transform={`rotate(${-(layout.bedAngle||0)} 95 93.5)`}>ANESTHESIA</text>
+        </g>
+      </svg>
+      {/* Sterile field — draggable rectangle with label handle + resize handle */}
+      <div style={{position:"absolute",left:`${layout.sf.l}%`,top:`${layout.sf.t}%`,width:`${layout.sf.w}%`,height:`${layout.sf.h}%`,border:`1.5px dashed ${T.teal}88`,borderRadius:4,pointerEvents:"none",zIndex:1}}>
+        <div onMouseDown={onDrag("sf",layout.sf.w,layout.sf.h)} onTouchStart={onDrag("sf",layout.sf.w,layout.sf.h)} title="Sterile Field — drag to move" style={{position:"absolute",top:-9,left:6,fontSize:9,fontFamily:MO,color:T.teal,background:floorBg,padding:"2px 6px",fontWeight:700,letterSpacing:1,pointerEvents:"auto",cursor:"move",border:`1px solid ${T.teal}66`,borderRadius:2,touchAction:"none"}}>STERILE FIELD</div>
+        {resizeHandle("sf",T.teal)}
+      </div>
+      {/* Doors — draggable floor-plan icons that flip to match their wall */}
+      {(layout.doors||[]).map((d,i)=>{
+        const wall=d.wall||"left";
+        const w=12,h=12;
+        const rot={left:0,top:90,right:180,bottom:270}[wall];
+        return(
+          <div key={i} onMouseDown={onDragDoor(i)} onTouchStart={onDragDoor(i)} title={`Door ${i+1} — drag to a wall`} style={{position:"absolute",left:`${d.l}%`,top:`${d.t}%`,width:`${w}%`,height:`${h}%`,cursor:"move",zIndex:4,userSelect:"none",touchAction:"none"}}>
+            <svg width="100%" height="100%" viewBox="0 0 38 38" preserveAspectRatio="none" style={{display:"block",pointerEvents:"none"}}>
+              <g transform={`rotate(${rot} 19 19)`}>
+                <line x1="3" y1="2" x2="3" y2="11" stroke={T.muted} strokeWidth="2.2" strokeLinecap="round"/>
+                <line x1="3" y1="27" x2="3" y2="36" stroke={T.muted} strokeWidth="2.2" strokeLinecap="round"/>
+                <line x1="3" y1="11" x2="17" y2="11" stroke={T.text} strokeWidth="1.6" strokeLinecap="round"/>
+                <path d="M 17 11 A 14 14 0 0 1 3 27" fill="none" stroke={T.muted} strokeWidth="0.7" strokeDasharray="2 1.5"/>
+              </g>
+            </svg>
+          </div>
+        );
+      })}
+      {/* Staff — draggable icon chips */}
+      {[{key:"srg",role:"SRG",label:"Surgeon",icon:"🔪"},{key:"ast",role:"AST",label:"Assistant",icon:"🩺"},{key:"scr",role:"SCR",label:"Scrub Tech",icon:"🧤"},{key:"cir",role:"CIR",label:"Circulator",icon:"📋"}].map(s=>(
+        <div key={s.key} onMouseDown={onDrag(s.key)} onTouchStart={onDrag(s.key)} title={`${s.label} — drag to reposition`} style={{position:"absolute",left:`${layout[s.key].l}%`,top:`${layout[s.key].t}%`,transform:"translate(-50%,-50%)",width:38,height:38,borderRadius:"50%",background:T.cyan+"20",border:`1.5px solid ${T.cyan}`,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",cursor:"move",zIndex:4,boxShadow:"0 2px 6px rgba(0,0,0,0.18)",userSelect:"none",touchAction:"none"}}>
+          <span style={{fontSize:14,lineHeight:1}}>{s.icon}</span>
+          <span style={{fontSize:7,color:T.cyan,fontFamily:MO,fontWeight:800,marginTop:1,letterSpacing:0.3}}>{s.role}</span>
+        </div>
+      ))}
+      {/* Interactive zones */}
+      {zoneDiv("p",{left:`${(layout.bed?.cx||47.5)-10.5}%`,top:`${(layout.bed?.cy||50)-27.5}%`,width:"21%",height:"55%",transform:`rotate(${layout.bedAngle||0}deg)`,transformOrigin:"50% 50%"},"PATIENT",originCount(mOnP,bOnP),T.purple,<span style={{fontSize:8,fontFamily:MO,color:T.purple+"99",pointerEvents:"none",marginTop:2}}>operative field</span>,onDragBed)}
+      {zoneDiv("m",{left:`${layout.m.l}%`,top:`${layout.m.t}%`,width:`${layout.m.w}%`,height:`${layout.m.h}%`},"MAYO",originCount(mOnM,bOnM),MC,bM>0?<span style={{fontSize:8,fontFamily:MO,color:T.muted,pointerEvents:"none"}}>base <span style={{color:MC,fontWeight:700}}>{bM}</span></span>:null,onDrag("m",layout.m.w,layout.m.h),true)}
+      {zoneDiv("b",{left:`${layout.b.l}%`,top:`${layout.b.t}%`,width:`${layout.b.w}%`,height:`${layout.b.h}%`},"BACK TABLE",originCount(mOnB,bOnB),BC,bB>0?<span style={{fontSize:8,fontFamily:MO,color:T.muted,pointerEvents:"none"}}>base <span style={{color:BC,fontWeight:700}}>{bB}</span></span>:null,onDrag("b",layout.b.w,layout.b.h),true)}
+      {zoneDiv("d",{left:`${layout.d.l}%`,top:`${layout.d.t}%`,width:`${layout.d.w}%`,height:`${layout.d.h}%`},"DISPOSED",originCount(mOnD,bOnD),T.amber,null,onDrag("d",layout.d.w,layout.d.h),true)}
+      {/* Rotation knob — at patient/bed pivot, follows bed position */}
+      <div onMouseDown={onRotate} onTouchStart={onRotate} title="Drag in a circle to rotate the bed" style={{position:"absolute",left:`${layout.bed?.cx||47.5}%`,top:`${layout.bed?.cy||50}%`,transform:"translate(-50%,-50%)",width:34,height:34,borderRadius:"50%",background:T.purple+"22",border:`1.5px dashed ${T.purple}`,display:"flex",alignItems:"center",justifyContent:"center",cursor:"grab",zIndex:8,fontSize:18,color:T.purple,userSelect:"none",touchAction:"none",fontWeight:700}}>↻</div>
     </div>
-    {/* Floating tooltip popup */}
-    {hover&&tipD.length>0&&<div onMouseEnter={()=>setHover(hover)} onMouseLeave={()=>setHover(null)} style={{position:"absolute",zIndex:100,background:T.card,border:`2px solid ${zoneColors[hover]}`,borderRadius:4,padding:"8px 10px",overflowY:"auto",boxShadow:"0 4px 16px rgba(0,0,0,0.25)",...(isFlex?{left:8,bottom:8,maxWidth:"calc(100% - 16px)",width:"max-content",minWidth:200,maxHeight:"60%"}:{left:0,top:height+4,minWidth:220,maxWidth:350,maxHeight:"50vh"})}}>
+    {/* Floating tooltip popup — anchored near the hovered zone */}
+    {hover&&tipD.length>0&&(()=>{const z=hover==="p"?{l:(layout.bed?.cx||47.5)-10.5,t:(layout.bed?.cy||50)-27.5,w:21,h:55}:layout[hover];if(!z)return null;const cx=z.l+z.w/2;const placeRight=cx<50;const anchor=placeRight?{left:`${Math.min(99,z.l+z.w+1)}%`,top:`${z.t}%`}:{right:`${Math.min(99,100-z.l+1)}%`,top:`${z.t}%`};return(<div onMouseEnter={()=>setHover(hover)} onMouseLeave={()=>setHover(null)} style={{position:"absolute",zIndex:100,background:T.card,border:`2px solid ${zoneColors[hover]}`,borderRadius:4,padding:"8px 10px",overflowY:"auto",boxShadow:"0 4px 16px rgba(0,0,0,0.25)",...anchor,width:"max-content",minWidth:160,maxWidth:`calc(${placeRight?100-z.l-z.w-2:z.l-1}% - 8px)`,maxHeight:`calc(${100-z.t}% - 8px)`}}>
       <div style={{fontSize:11,fontFamily:MO,fontWeight:700,color:zoneColors[hover],marginBottom:4,letterSpacing:1,borderBottom:`1px solid ${T.border}`,paddingBottom:3}}>{zoneNames[hover]?.toUpperCase()}</div>
       {tipD.map((cat,ci)=>{const hasMissing=cat.missing&&cat.missing.length>0;const hasItems=cat.items&&cat.items.length>0;return(<div key={ci} style={{marginBottom:ci<tipD.length-1?6:0}}>
         <div style={{fontSize:10,fontFamily:MO,color:cat.c,fontWeight:600,marginBottom:2}}><span style={{marginRight:3}}>{cat.i}</span>{cat.l}{cat.totalMissing?` — ${cat.totalMissing} missing`:hasItems?` (${cat.items.reduce((s,i)=>s+i.count,0)})`:""}</div>
@@ -329,7 +574,7 @@ function ORZoneMap({T,items,height=180}) {
           <span style={{marginLeft:6}}>{m.parts.map((p,pi)=>(<span key={pi} style={{fontSize:10,fontFamily:MO,color:p.color,marginLeft:pi?4:0}}>{p.count}→{p.where}</span>))}</span>
         </div>))}
       </div>);})}
-    </div>}
+    </div>);})()}
   </div>);
 }
 
@@ -390,7 +635,7 @@ function InvScreen({T,pendingItem,onPendingClear,elapsed=0,itemsOverride=null,it
   return(
     <div style={{position:"relative",height:"100%",minHeight:0,overflow:"hidden"}}>
       {/* CATEGORIES panel */}
-      <FloatingPanel panel={invPanels.panels.find(p=>p.id==="categories")} update={invPanels.update} bringToFront={invPanels.bringToFront} onInteractStart={invPanels.showGrid} onInteractEnd={invPanels.hideGrid} T={T} headerColor={T.teal}><div style={{height:"100%",display:"flex",flexDirection:"column",gap:8,minHeight:0,padding:10,overflow:"auto"}}>
+      <FloatingPanel panel={invPanels.panels.find(p=>p.id==="categories")} update={invPanels.update} bringToFront={invPanels.bringToFront} onInteractStart={invPanels.showGrid} onInteractEnd={invPanels.hideGrid} T={T} headerColor={T.teal} icon="📚"><div style={{height:"100%",display:"flex",flexDirection:"column",gap:8,minHeight:0,padding:10,overflow:"auto"}}>
         <div style={{flexShrink:0}}>
           <div style={{fontSize:16,fontWeight:700,color:T.teal,fontFamily:SA,cursor:"pointer",textDecoration:"underline"}} onClick={()=>{import("./kitCatalog").then(m=>window.open(m.getKitPdf(kitName||"Masectomy Tray"),"_blank"));}}>{kitName||"Masectomy Tray"}</div>
           <div style={{fontSize:12,fontFamily:MO,color:T.muted}}>{VIS.length} types · {tI} pieces</div>
@@ -465,7 +710,7 @@ function InvScreen({T,pendingItem,onPendingClear,elapsed=0,itemsOverride=null,it
       </div></FloatingPanel>
 
       {/* CONTENT panel */}
-      <FloatingPanel panel={invPanels.panels.find(p=>p.id==="content")} update={invPanels.update} bringToFront={invPanels.bringToFront} onInteractStart={invPanels.showGrid} onInteractEnd={invPanels.hideGrid} T={T} headerColor={T.purple}><div style={{height:"100%",display:"flex",flexDirection:"column"}}>
+      <FloatingPanel panel={invPanels.panels.find(p=>p.id==="content")} update={invPanels.update} bringToFront={invPanels.bringToFront} onInteractStart={invPanels.showGrid} onInteractEnd={invPanels.hideGrid} T={T} headerColor={T.purple} icon="📦"><div style={{height:"100%",display:"flex",flexDirection:"column"}}>
         {activeCat?(<>
         {(()=>{const zi=zoneItems.filter(it=>it.cat===activeCat);const zM=zi.reduce((s,i)=>s+i.loc.m,0);const zP=zi.reduce((s,i)=>s+i.loc.p,0);const zD=zi.reduce((s,i)=>s+i.loc.d,0);const zOpened=activeCat==="pack"?zi.reduce((s,i)=>((itemEventsOverride||ITEM_EVENTS)[i.id]||[]).filter(e=>e.type==="opened"&&e.at<=elapsed).length+s,0):0;return(
         <div style={{padding:"8px 12px",borderBottom:`2px solid ${T.border}`,display:"flex",alignItems:"center",justifyContent:"space-between",background:T.card2}}>
@@ -560,14 +805,14 @@ function InvScreen({T,pendingItem,onPendingClear,elapsed=0,itemsOverride=null,it
       </div></FloatingPanel>
 
       {/* LOCATION panel — Real Time Location */}
-      <FloatingPanel panel={invPanels.panels.find(p=>p.id==="location")} update={invPanels.update} bringToFront={invPanels.bringToFront} onInteractStart={invPanels.showGrid} onInteractEnd={invPanels.hideGrid} T={T} headerColor={T.cyan}>
+      <FloatingPanel panel={invPanels.panels.find(p=>p.id==="location")} update={invPanels.update} bringToFront={invPanels.bringToFront} onInteractStart={invPanels.showGrid} onInteractEnd={invPanels.hideGrid} T={T} headerColor={T.cyan} icon="📍">
         <div style={{padding:10,height:"100%",display:"flex",flexDirection:"column",minHeight:0,boxSizing:"border-box"}}>
           <ORZoneMap T={T} items={VIS} height="100%"/>
         </div>
       </FloatingPanel>
 
       {/* COUNTS panel */}
-      <FloatingPanel panel={invPanels.panels.find(p=>p.id==="counts")} update={invPanels.update} bringToFront={invPanels.bringToFront} onInteractStart={invPanels.showGrid} onInteractEnd={invPanels.hideGrid} T={T} headerColor={T.amber}>
+      <FloatingPanel panel={invPanels.panels.find(p=>p.id==="counts")} update={invPanels.update} bringToFront={invPanels.bringToFront} onInteractStart={invPanels.showGrid} onInteractEnd={invPanels.hideGrid} T={T} headerColor={T.amber} icon="🔢">
         <div style={{padding:10,height:"100%",overflow:"auto"}}>
           {(()=>{
             const countPhases=_PH_INV.map((p,i)=>({...p,idx:i})).filter(p=>p.gate);
@@ -597,7 +842,7 @@ function InvScreen({T,pendingItem,onPendingClear,elapsed=0,itemsOverride=null,it
         </div></FloatingPanel>
 
       {/* EVENT FEED panel */}
-      <FloatingPanel panel={invPanels.panels.find(p=>p.id==="feed")} update={invPanels.update} bringToFront={invPanels.bringToFront} onInteractStart={invPanels.showGrid} onInteractEnd={invPanels.hideGrid} T={T} headerColor={T.green}>
+      <FloatingPanel panel={invPanels.panels.find(p=>p.id==="feed")} update={invPanels.update} bringToFront={invPanels.bringToFront} onInteractStart={invPanels.showGrid} onInteractEnd={invPanels.hideGrid} T={T} headerColor={T.green} icon="📡">
         {(()=>{
           // Merge EVT + all ITEM_EVENTS into unified chronological feed
           const catIcons={sponge:"◼",needle:"▲",sharp:"◆",pack:"▣",instrument:"◎"};
@@ -629,6 +874,7 @@ function InvScreen({T,pendingItem,onPendingClear,elapsed=0,itemsOverride=null,it
 
       <GridOverlay visible={invPanels.gridVisible}/>
       <MinimizedTray panels={invPanels.panels} update={invPanels.update} T={T}/>
+      <PanelLauncher panels={invPanels.panels} update={invPanels.update} bringToFront={invPanels.bringToFront} T={T} meta={{categories:{c:"teal",i:"📚"},content:{c:"purple",i:"📦"},location:{c:"cyan",i:"📍"},counts:{c:"amber",i:"🔢"},feed:{c:"green",i:"📡"}}}/>
       {/* Lightbox modal */}
       {lightbox&&<div onClick={()=>setLightbox(null)} style={{position:"fixed",inset:0,zIndex:100,background:"rgba(0,0,0,0.85)",display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer"}}>
         <div onClick={e=>e.stopPropagation()} style={{position:"relative",maxWidth:"80vw",maxHeight:"80vh",background:T.card,border:`2px solid ${T.border}`,borderRadius:3,overflow:"hidden",cursor:"default"}}>
@@ -758,7 +1004,7 @@ function TlScreen({T,as=5,onScreenChange,elapsed=0,phasesData=null,evtsData=null
 
     {/* BOTTOM: Floating panels — drag, resize, minimize freely */}
     <div style={{position:"relative",flex:1,minHeight:0,overflow:"hidden"}}>
-      <FloatingPanel panel={tlPanels.panels.find(p=>p.id==="phases")} update={tlPanels.update} bringToFront={tlPanels.bringToFront} onInteractStart={tlPanels.showGrid} onInteractEnd={tlPanels.hideGrid} T={T} headerColor={T.teal}><div style={{height:"100%",display:"flex",flexDirection:"column"}}>
+      <FloatingPanel panel={tlPanels.panels.find(p=>p.id==="phases")} update={tlPanels.update} bringToFront={tlPanels.bringToFront} onInteractStart={tlPanels.showGrid} onInteractEnd={tlPanels.hideGrid} T={T} headerColor={T.teal} icon="⏱"><div style={{height:"100%",display:"flex",flexDirection:"column"}}>
         <div style={{padding:"8px 12px",borderBottom:`2px solid ${T.border}`,background:T.card2}}>
           <span style={{fontSize:13,fontWeight:700,color:T.text}}>Phase Durations</span>
         </div>
@@ -786,7 +1032,7 @@ function TlScreen({T,as=5,onScreenChange,elapsed=0,phasesData=null,evtsData=null
       </div></FloatingPanel>
 
       {/* AUDIO/MEDIA panel */}
-      <FloatingPanel panel={tlPanels.panels.find(p=>p.id==="audio")} update={tlPanels.update} bringToFront={tlPanels.bringToFront} onInteractStart={tlPanels.showGrid} onInteractEnd={tlPanels.hideGrid} T={T} headerColor={T.purple}><div style={{height:"100%",display:"flex",flexDirection:"column"}}>
+      <FloatingPanel panel={tlPanels.panels.find(p=>p.id==="audio")} update={tlPanels.update} bringToFront={tlPanels.bringToFront} onInteractStart={tlPanels.showGrid} onInteractEnd={tlPanels.hideGrid} T={T} headerColor={T.purple} icon="🎙"><div style={{height:"100%",display:"flex",flexDirection:"column"}}>
         <div style={{display:"flex",borderBottom:`2px solid ${T.border}`,background:T.card2,flexShrink:0}}>
           <div onClick={()=>setMidTab("transcript")} style={{padding:"8px 16px",cursor:"pointer",fontSize:12,fontFamily:MO,fontWeight:700,color:midTab==="transcript"?T.text:T.muted,borderBottom:midTab==="transcript"?`2px solid ${T.teal}`:"2px solid transparent",marginBottom:-2}}>Audio Transcription</div>
           <div onClick={()=>setMidTab("media")} style={{padding:"8px 16px",cursor:"pointer",fontSize:12,fontFamily:MO,fontWeight:700,color:midTab==="media"?T.text:T.muted,borderBottom:midTab==="media"?`2px solid ${T.purple}`:"2px solid transparent",marginBottom:-2}}>Media</div>
@@ -840,14 +1086,14 @@ function TlScreen({T,as=5,onScreenChange,elapsed=0,phasesData=null,evtsData=null
       </div></FloatingPanel>
 
       {/* LOCATION panel — OR Zone Map */}
-      <FloatingPanel panel={tlPanels.panels.find(p=>p.id==="location")} update={tlPanels.update} bringToFront={tlPanels.bringToFront} onInteractStart={tlPanels.showGrid} onInteractEnd={tlPanels.hideGrid} T={T} headerColor={T.cyan}>
+      <FloatingPanel panel={tlPanels.panels.find(p=>p.id==="location")} update={tlPanels.update} bringToFront={tlPanels.bringToFront} onInteractStart={tlPanels.showGrid} onInteractEnd={tlPanels.hideGrid} T={T} headerColor={T.cyan} icon="📍">
         <div style={{padding:10,height:"100%",display:"flex",flexDirection:"column",minHeight:0,boxSizing:"border-box"}}>
           <ORZoneMap T={T} items={tlVIS} height="100%"/>
         </div>
       </FloatingPanel>
 
       {/* EVENTS panel — Event Log only */}
-      <FloatingPanel panel={tlPanels.panels.find(p=>p.id==="events")} update={tlPanels.update} bringToFront={tlPanels.bringToFront} onInteractStart={tlPanels.showGrid} onInteractEnd={tlPanels.hideGrid} T={T} headerColor={T.amber}>
+      <FloatingPanel panel={tlPanels.panels.find(p=>p.id==="events")} update={tlPanels.update} bringToFront={tlPanels.bringToFront} onInteractStart={tlPanels.showGrid} onInteractEnd={tlPanels.hideGrid} T={T} headerColor={T.amber} icon="📋">
         <div style={{height:"100%",display:"flex",flexDirection:"column"}}>
           <div style={{padding:"8px 12px",borderBottom:`2px solid ${T.border}`,background:T.card2,display:"flex",alignItems:"center",justifyContent:"space-between",flexShrink:0}}>
             <span style={{fontSize:12,fontFamily:MO,color:T.muted,letterSpacing:1.5}}>FILTER</span>
@@ -870,6 +1116,7 @@ function TlScreen({T,as=5,onScreenChange,elapsed=0,phasesData=null,evtsData=null
 
       <GridOverlay visible={tlPanels.gridVisible}/>
       <MinimizedTray panels={tlPanels.panels} update={tlPanels.update} T={T}/>
+      <PanelLauncher panels={tlPanels.panels} update={tlPanels.update} bringToFront={tlPanels.bringToFront} T={T} meta={{phases:{c:"teal",i:"⏱"},audio:{c:"purple",i:"🎙"},location:{c:"cyan",i:"📍"},events:{c:"amber",i:"📋"}}}/>
     </div>
   </div>);
 }
@@ -906,7 +1153,7 @@ function TnScreen({T,elapsed=0,phasesData=null,itemsOverride=null,itemEventsOver
   return(
     <div style={{position:"relative",height:"100%",minHeight:0,overflow:"hidden"}}>
       {/* PHASE STATS panel */}
-      <FloatingPanel panel={tnPanels.panels.find(p=>p.id==="phase")} update={tnPanels.update} bringToFront={tnPanels.bringToFront} onInteractStart={tnPanels.showGrid} onInteractEnd={tnPanels.hideGrid} T={T} headerColor={T.teal}>
+      <FloatingPanel panel={tnPanels.panels.find(p=>p.id==="phase")} update={tnPanels.update} bringToFront={tnPanels.bringToFront} onInteractStart={tnPanels.showGrid} onInteractEnd={tnPanels.hideGrid} T={T} headerColor={T.teal} icon="⏱">
         <div style={{height:"100%",display:"flex",flexDirection:"column",overflow:"hidden"}}>
           <div style={{flex:1,overflowY:"auto",minHeight:0}}>
             <table style={{width:"100%",borderCollapse:"collapse",fontSize:13,fontFamily:SA}}>
@@ -944,7 +1191,7 @@ function TnScreen({T,elapsed=0,phasesData=null,itemsOverride=null,itemEventsOver
       </FloatingPanel>
 
       {/* COMPLIANCE panel */}
-      <FloatingPanel panel={tnPanels.panels.find(p=>p.id==="compliance")} update={tnPanels.update} bringToFront={tnPanels.bringToFront} onInteractStart={tnPanels.showGrid} onInteractEnd={tnPanels.hideGrid} T={T} headerColor={T.amber}>
+      <FloatingPanel panel={tnPanels.panels.find(p=>p.id==="compliance")} update={tnPanels.update} bringToFront={tnPanels.bringToFront} onInteractStart={tnPanels.showGrid} onInteractEnd={tnPanels.hideGrid} T={T} headerColor={T.amber} icon="✅">
         <div style={{height:"100%",display:"flex",flexDirection:"column",overflow:"hidden"}}>
           <div style={{flex:1,overflowY:"auto",minHeight:0,padding:12}}>
             {isArchive&&archiveOp?(()=>{
@@ -996,7 +1243,7 @@ function TnScreen({T,elapsed=0,phasesData=null,itemsOverride=null,itemEventsOver
       </FloatingPanel>
 
       {/* KIT STATS panel */}
-      <FloatingPanel panel={tnPanels.panels.find(p=>p.id==="kit")} update={tnPanels.update} bringToFront={tnPanels.bringToFront} onInteractStart={tnPanels.showGrid} onInteractEnd={tnPanels.hideGrid} T={T} headerColor={T.purple}>
+      <FloatingPanel panel={tnPanels.panels.find(p=>p.id==="kit")} update={tnPanels.update} bringToFront={tnPanels.bringToFront} onInteractStart={tnPanels.showGrid} onInteractEnd={tnPanels.hideGrid} T={T} headerColor={T.purple} icon="🧰">
         <div style={{height:"100%",display:"flex",flexDirection:"column",overflow:"hidden"}}>
           <div style={{flex:1,overflowY:"auto",minHeight:0,padding:12}}>
             <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:12}}>
@@ -1028,7 +1275,7 @@ function TnScreen({T,elapsed=0,phasesData=null,itemsOverride=null,itemEventsOver
       </FloatingPanel>
 
       {/* CONSUMABLES STATS panel */}
-      <FloatingPanel panel={tnPanels.panels.find(p=>p.id==="consumables")} update={tnPanels.update} bringToFront={tnPanels.bringToFront} onInteractStart={tnPanels.showGrid} onInteractEnd={tnPanels.hideGrid} T={T} headerColor={T.green}>
+      <FloatingPanel panel={tnPanels.panels.find(p=>p.id==="consumables")} update={tnPanels.update} bringToFront={tnPanels.bringToFront} onInteractStart={tnPanels.showGrid} onInteractEnd={tnPanels.hideGrid} T={T} headerColor={T.green} icon="🩹">
         <div style={{height:"100%",display:"flex",flexDirection:"column",overflow:"hidden"}}>
           <div style={{flex:1,overflowY:"auto",minHeight:0,padding:12,display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
             {[{label:"Sponges",icon:"◼",items:sponges,c:T.teal},{label:"Needles",icon:"▲",items:needles,c:T.purple},{label:"Sharps",icon:"◆",items:sharps,c:T.amber},{label:"Disposables",icon:"▣",items:packs,c:T.green}].map(cat=>{const ini=cat.items.reduce((s,i)=>s+i.init,0);const mayo=cat.items.reduce((s,i)=>s+(i.loc?.m||0),0);const patient=cat.items.reduce((s,i)=>s+(i.loc?.p||0),0);const disp=cat.items.reduce((s,i)=>s+(i.loc?.d||0),0);const opened=cat.label==="Disposables"?cat.items.reduce((s,i)=>(_IE[i.id]||[]).filter(e=>e.type==="opened").length+s,0):0;return(
@@ -1071,6 +1318,7 @@ function TnScreen({T,elapsed=0,phasesData=null,itemsOverride=null,itemEventsOver
 
       <GridOverlay visible={tnPanels.gridVisible}/>
       <MinimizedTray panels={tnPanels.panels} update={tnPanels.update} T={T}/>
+      <PanelLauncher panels={tnPanels.panels} update={tnPanels.update} bringToFront={tnPanels.bringToFront} T={T} meta={{phase:{c:"teal",i:"⏱"},compliance:{c:"amber",i:"✅"},kit:{c:"purple",i:"🧰"},consumables:{c:"green",i:"🩹"}}}/>
     </div>
   );
 }
@@ -1140,7 +1388,7 @@ function SettingsScreen({T}){
         </div>);})}
       </Cd>
       <Cd T={T} style={{flex:1,padding:14,minHeight:0,overflow:"hidden"}}><Lb T={T}>Alerts</Lb><div style={{flex:1,overflowY:"auto",minHeight:0}}>{[{name:"Item Drop Detection",sev:"critical",en:true},{name:"Count Mismatch",sev:"critical",en:true},{name:"Staff Zone Breach",sev:"high",en:true},{name:"Time Out Incomplete",sev:"critical",en:true},{name:"Mid-Case Tray",sev:"medium",en:true},{name:"Camera Occlusion",sev:"medium",en:true},{name:"Idle Warning",sev:"low",en:false},{name:"Turnover Exceeded",sev:"low",en:true}].map((al,i)=>{const sc=al.sev==="critical"?T.red:al.sev==="high"?T.orange:al.sev==="medium"?T.amber:T.muted;return(<div key={i} style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"8px 0",borderBottom:`1px solid ${T.border}`,opacity:al.en?1:.4}}><div style={{display:"flex",alignItems:"center",gap:8}}><div style={{width:8,height:8,borderRadius:4,background:al.en?sc:T.faint}}/><span style={{fontSize:15,fontFamily:SA,color:T.text}}>{al.name}</span></div><P color={sc} T={T} small filled={al.en}>{al.sev}</P></div>);})}</div>
-        <div style={{flexShrink:0,marginTop:8,paddingTop:10,borderTop:`1px solid ${T.border}`,display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8}}>{[{l:"AI",v:"ORKing© v1.0"},{l:"CV",v:"YOLO-Surg v8"},{l:"NLU",v:"Tracki© v2.1"}].map((s,i)=>(<div key={i}><div style={{fontSize:10,fontFamily:MO,color:T.muted,textTransform:"uppercase"}}>{s.l}</div><div style={{fontSize:14,fontWeight:600,fontFamily:MO,color:T.teal,marginTop:2}}>{s.v}</div></div>))}</div>
+        <div style={{flexShrink:0,marginTop:8,paddingTop:10,borderTop:`1px solid ${T.border}`,display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8}}>{[{l:"AI",v:"ORKing© v1.0.1"},{l:"CV",v:"YOLO-Surg v8"},{l:"NLU",v:"Tracki© v2.1"}].map((s,i)=>(<div key={i}><div style={{fontSize:10,fontFamily:MO,color:T.muted,textTransform:"uppercase"}}>{s.l}</div><div style={{fontSize:14,fontWeight:600,fontFamily:MO,color:T.teal,marginTop:2}}>{s.v}</div></div>))}</div>
       </Cd>
     </div>
     <div style={{display:"flex",flexDirection:"column",gap:10,minHeight:0,overflow:"hidden"}}>
@@ -1443,7 +1691,7 @@ export default function App() {
         {/* LEFT: Logo + Case info */}
         <img src={T.n==="dark"?"/assets/trackimed-logo-white.png":"/assets/trackimed-logo.png"} alt="TrackiMed" style={{height:28}} onError={(e)=>{e.target.style.display="none";}}/>
         <div style={{borderLeft:`2px solid ${T.border}`,paddingLeft:10,marginLeft:10,marginRight:12}}>
-          <div style={{fontSize:15,fontWeight:700,color:T.text,fontFamily:SA}}>ORKing <span style={{color:T.teal,fontWeight:400,fontSize:10,fontFamily:MO}}>v1.0.0</span> <span style={{color:T.muted,fontWeight:400,fontSize:12,fontFamily:MO}}>{user.or} · {(()=>{const d=new Date(procStart-2071*1000);return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")} ${String(d.getHours()).padStart(2,"0")}:${String(d.getMinutes()).padStart(2,"0")}`;})()}</span></div>
+          <div style={{fontSize:15,fontWeight:700,color:T.text,fontFamily:SA}}>ORKing <span style={{color:T.teal,fontWeight:400,fontSize:10,fontFamily:MO}}>v1.0.1</span> <span style={{color:T.muted,fontWeight:400,fontSize:12,fontFamily:MO}}>{user.or} · {(()=>{const d=new Date(procStart-2071*1000);return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")} ${String(d.getHours()).padStart(2,"0")}:${String(d.getMinutes()).padStart(2,"0")}`;})()}</span></div>
           <div style={{fontSize:11,fontFamily:MO,color:T.muted}}>Case #2026-0207-003 · Mastectomy / Reconstruction</div>
         </div>
 
@@ -1507,7 +1755,7 @@ export default function App() {
         {screen==="or_analytics"&&<ORAnalyticsScreen T={T}/>}
 
         {/* Reset phase picker panel */}
-        {showReset&&<div style={{position:"absolute",top:0,right:0,bottom:0,width:360,background:T.panel,borderLeft:`2px solid ${T.border}`,zIndex:55,display:"flex",flexDirection:"column"}}>
+        {showReset&&<div style={{position:"absolute",top:0,right:0,bottom:0,width:360,background:T.panel,borderLeft:`2px solid ${T.border}`,zIndex:10100,display:"flex",flexDirection:"column",boxShadow:"-4px 0 16px rgba(0,0,0,0.35)"}}>
           <div style={{padding:"8px 12px",borderBottom:`2px solid ${T.border}`,display:"flex",alignItems:"center",justifyContent:"space-between",flexShrink:0,background:T.card2}}>
             <span style={{fontSize:12,fontWeight:700,color:T.text,fontFamily:MO,textTransform:"uppercase",letterSpacing:1}}>Reset Procedure</span>
             <div onClick={()=>setShowReset(false)} style={{padding:"2px 8px",cursor:"pointer",background:T.card,border:`1px solid ${T.border}`,borderRadius:2,fontSize:11,fontFamily:MO,color:T.muted}}>CLOSE</div>
@@ -1587,7 +1835,7 @@ function ORAnalyticsScreen({T}) {
   return(
     <div style={{position:"relative",height:"100%",minHeight:0,overflow:"hidden"}}>
       {/* OVERVIEW panel */}
-      <FloatingPanel panel={anPanels.panels.find(p=>p.id==="overview")} update={anPanels.update} bringToFront={anPanels.bringToFront} onInteractStart={anPanels.showGrid} onInteractEnd={anPanels.hideGrid} T={T} headerColor={T.blue}><div style={{height:"100%",display:"flex",flexDirection:"column",gap:12,padding:12,overflow:"auto",boxSizing:"border-box"}}>
+      <FloatingPanel panel={anPanels.panels.find(p=>p.id==="overview")} update={anPanels.update} bringToFront={anPanels.bringToFront} onInteractStart={anPanels.showGrid} onInteractEnd={anPanels.hideGrid} T={T} headerColor={T.blue} icon="📊"><div style={{height:"100%",display:"flex",flexDirection:"column",gap:12,padding:12,overflow:"auto",boxSizing:"border-box"}}>
         <div><div style={{fontSize:14,fontFamily:MO,color:T.blue,textTransform:"uppercase",letterSpacing:2}}>OR Performance</div><div style={{fontSize:24,fontWeight:800,color:T.text,fontFamily:SA}}>OR-1 Overview</div></div>
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8}}>
           {[{l:"Cases (Month)",v:"48",c:T.teal},{l:"Avg Duration",v:"2:12",c:T.text},{l:"OR Utilization",v:"70%",c:T.green},{l:"Avg Turnover",v:"21m",c:T.blue},{l:"Count Accuracy",v:"99.4%",c:T.green},{l:"Total Alerts",v:"11",c:T.amber}].map((m,i)=>(
@@ -1600,7 +1848,7 @@ function ORAnalyticsScreen({T}) {
       </div></FloatingPanel>
 
       {/* TREND panel */}
-      <FloatingPanel panel={anPanels.panels.find(p=>p.id==="trend")} update={anPanels.update} bringToFront={anPanels.bringToFront} onInteractStart={anPanels.showGrid} onInteractEnd={anPanels.hideGrid} T={T} headerColor={T.teal}>
+      <FloatingPanel panel={anPanels.panels.find(p=>p.id==="trend")} update={anPanels.update} bringToFront={anPanels.bringToFront} onInteractStart={anPanels.showGrid} onInteractEnd={anPanels.hideGrid} T={T} headerColor={T.teal} icon="📈">
         <div style={{flex:1,padding:14,minHeight:0,overflow:"hidden",height:"100%",display:"flex",flexDirection:"column",boxSizing:"border-box"}}>
           <Lb T={T}>Trend by Period</Lb>
           <div style={{flex:1,overflowY:"auto",minHeight:0}}>
@@ -1623,7 +1871,7 @@ function ORAnalyticsScreen({T}) {
       </FloatingPanel>
 
       {/* BY PROCEDURE panel */}
-      <FloatingPanel panel={anPanels.panels.find(p=>p.id==="procedures")} update={anPanels.update} bringToFront={anPanels.bringToFront} onInteractStart={anPanels.showGrid} onInteractEnd={anPanels.hideGrid} T={T} headerColor={T.purple}>
+      <FloatingPanel panel={anPanels.panels.find(p=>p.id==="procedures")} update={anPanels.update} bringToFront={anPanels.bringToFront} onInteractStart={anPanels.showGrid} onInteractEnd={anPanels.hideGrid} T={T} headerColor={T.purple} icon="🔬">
         <div style={{padding:14,minHeight:0,overflow:"hidden",height:"100%",display:"flex",flexDirection:"column",boxSizing:"border-box"}}>
         <Lb T={T}>By Procedure Type</Lb>
         <div style={{flex:1,overflowY:"auto",minHeight:0}}>
@@ -1646,7 +1894,7 @@ function ORAnalyticsScreen({T}) {
       </FloatingPanel>
 
       {/* QUICK STATS panel */}
-      <FloatingPanel panel={anPanels.panels.find(p=>p.id==="stats")} update={anPanels.update} bringToFront={anPanels.bringToFront} onInteractStart={anPanels.showGrid} onInteractEnd={anPanels.hideGrid} T={T} headerColor={T.green}>
+      <FloatingPanel panel={anPanels.panels.find(p=>p.id==="stats")} update={anPanels.update} bringToFront={anPanels.bringToFront} onInteractStart={anPanels.showGrid} onInteractEnd={anPanels.hideGrid} T={T} headerColor={T.green} icon="🏆">
         <div style={{display:"flex",flexDirection:"column",gap:12,minHeight:0,height:"100%",padding:12,overflow:"auto",boxSizing:"border-box"}}>
         <div style={{flexShrink:0}}>
           <Lb T={T}>Efficiency Gains</Lb>
@@ -1691,6 +1939,7 @@ function ORAnalyticsScreen({T}) {
 
       <GridOverlay visible={anPanels.gridVisible}/>
       <MinimizedTray panels={anPanels.panels} update={anPanels.update} T={T}/>
+      <PanelLauncher panels={anPanels.panels} update={anPanels.update} bringToFront={anPanels.bringToFront} T={T} meta={{overview:{c:"blue",i:"📊"},trend:{c:"teal",i:"📈"},procedures:{c:"purple",i:"🔬"},stats:{c:"green",i:"🏆"}}}/>
     </div>
   );
 }
