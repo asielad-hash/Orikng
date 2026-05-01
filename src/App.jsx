@@ -340,7 +340,8 @@ const OR_LAYOUT_DEFAULTS={
   scr:{l:47,t:18},
   cir:{l:12,t:88},
   pa:{l:42,t:60},
-  bed:{cx:47.5,cy:50},
+  emr:{l:6,t:74},
+  bed:{cx:47.5,cy:50,w:21,h:48},
   bedAngle:0,
 };
 let __orLayoutCache=null;
@@ -476,6 +477,36 @@ function ORZoneMap({T,items,height=180}) {
     document.addEventListener("mousemove",move);document.addEventListener("mouseup",up);
     document.addEventListener("touchmove",move,{passive:false});document.addEventListener("touchend",up);
   };
+  const onResizeBed=(e)=>{
+    e.stopPropagation();
+    if(!mapRef.current)return;
+    pushHistory();
+    const rect=mapRef.current.getBoundingClientRect();
+    const isTouch=!!e.touches;
+    const startX=isTouch?e.touches[0].clientX:e.clientX;
+    const startY=isTouch?e.touches[0].clientY:e.clientY;
+    const startW=layout.bed?.w??21;
+    const startH=layout.bed?.h??48;
+    const ang=((layout.bedAngle||0)*Math.PI)/180;
+    const cosA=Math.cos(ang),sinA=Math.sin(ang);
+    const move=(ev)=>{
+      const cx=ev.touches?ev.touches[0].clientX:ev.clientX;
+      const cy=ev.touches?ev.touches[0].clientY:ev.clientY;
+      const dx=cx-startX,dy=cy-startY;
+      // Inverse-rotate screen delta into bed-local frame
+      const localDx=dx*cosA+dy*sinA;
+      const localDy=-dx*sinA+dy*cosA;
+      const dwPct=(2*localDx/rect.width)*100;
+      const dhPct=(2*localDy/rect.height)*100;
+      const nw=Math.max(10,Math.min(45,startW+dwPct));
+      const nh=Math.max(20,Math.min(80,startH+dhPct));
+      setLayout(p=>({...p,bed:{...p.bed,w:nw,h:nh}}));
+      if(ev.touches)ev.preventDefault();
+    };
+    const up=()=>{document.removeEventListener("mousemove",move);document.removeEventListener("mouseup",up);document.removeEventListener("touchmove",move);document.removeEventListener("touchend",up);};
+    document.addEventListener("mousemove",move);document.addEventListener("mouseup",up);
+    document.addEventListener("touchmove",move,{passive:false});document.addEventListener("touchend",up);
+  };
   const onRotate=(e)=>{
     e.stopPropagation();
     if(!mapRef.current)return;
@@ -568,7 +599,7 @@ function ORZoneMap({T,items,height=180}) {
       {/* Bed + Anesthesia — HTML so rotation is uniform with the patient zone */}
       {(()=>{
         const bcx=layout.bed?.cx||47.5,bcy=layout.bed?.cy||50,ang=layout.bedAngle||0;
-        const W=21,BED_H=48,GAP=1.5,ANES_H=11;const TOTAL_H=BED_H+GAP+ANES_H;
+        const W=layout.bed?.w??21,BED_H=layout.bed?.h??48,GAP=1.5,ANES_H=Math.max(8,BED_H*0.23);const TOTAL_H=BED_H+GAP+ANES_H;
         return(<div style={{position:"absolute",left:`${bcx-W/2}%`,top:`${bcy-BED_H/2}%`,width:`${W}%`,height:`${TOTAL_H}%`,transform:`rotate(${ang}deg)`,transformOrigin:`50% ${(BED_H/2/TOTAL_H)*100}%`,pointerEvents:"none",zIndex:2}}>
           {/* OR table */}
           <div style={{position:"absolute",left:0,top:0,width:"100%",height:`${(BED_H/TOTAL_H)*100}%`,background:isDark?"#1a2330":"#dbe2ea",border:`1px solid ${wallC}`,borderRadius:6,overflow:"hidden"}}>
@@ -620,13 +651,13 @@ function ORZoneMap({T,items,height=180}) {
           <span style={{fontSize:7,color:T.cyan,fontFamily:MO,fontWeight:800,marginTop:1,letterSpacing:0.3}}>{s.role}</span>
         </div>:null
       ))}
-      {/* EMR station — attached next to the CIR */}
-      {layout.cir&&<div title="EMR Station — used by Circulator" style={{position:"absolute",left:`calc(${layout.cir.l}% + 26px)`,top:`${layout.cir.t}%`,transform:"translate(0,-50%)",width:32,height:24,borderRadius:3,background:isDark?"#1a2330":"#dbe2ea",border:`1px solid ${T.muted}`,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",zIndex:3,boxShadow:"0 1px 3px rgba(0,0,0,0.18)",pointerEvents:"none",userSelect:"none"}}>
-        <span style={{fontSize:11,lineHeight:1}}>💻</span>
-        <span style={{fontSize:6,color:T.muted,fontFamily:MO,fontWeight:800,letterSpacing:0.5,marginTop:1}}>EMR</span>
+      {/* EMR Station — independently draggable */}
+      {layout.emr&&<div onMouseDown={onDrag("emr")} onTouchStart={onDrag("emr")} title="EMR Station — drag to reposition" style={{position:"absolute",left:`${layout.emr.l}%`,top:`${layout.emr.t}%`,transform:"translate(-50%,-50%)",width:64,height:48,borderRadius:4,background:isDark?"#1a2330":"#dbe2ea",border:`1.5px solid ${T.muted}`,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",cursor:"move",zIndex:4,boxShadow:"0 2px 6px rgba(0,0,0,0.18)",userSelect:"none",touchAction:"none"}}>
+        <span style={{fontSize:22,lineHeight:1}}>💻</span>
+        <span style={{fontSize:9,color:T.muted,fontFamily:MO,fontWeight:800,letterSpacing:0.7,marginTop:2}}>EMR</span>
       </div>}
       {/* Interactive zones */}
-      {zoneDiv("p",{left:`${(layout.bed?.cx||47.5)-10.5}%`,top:`${(layout.bed?.cy||50)-27.5}%`,width:"21%",height:"55%",transform:`rotate(${layout.bedAngle||0}deg)`,transformOrigin:"50% 50%"},"PATIENT",originCount(mOnP,bOnP),T.purple,<span style={{fontSize:8,fontFamily:MO,color:T.purple+"99",pointerEvents:"none",marginTop:2}}>operative field</span>,onDragBed)}
+      {(()=>{const bw=layout.bed?.w??21,bh=layout.bed?.h??48;return zoneDiv("p",{left:`${(layout.bed?.cx||47.5)-bw/2}%`,top:`${(layout.bed?.cy||50)-bh/2}%`,width:`${bw}%`,height:`${bh}%`,transform:`rotate(${layout.bedAngle||0}deg)`,transformOrigin:"50% 50%"},"PATIENT",originCount(mOnP,bOnP),T.purple,<><span style={{fontSize:8,fontFamily:MO,color:T.purple+"99",pointerEvents:"none",marginTop:2}}>operative field</span><div onMouseDown={onResizeBed} onTouchStart={onResizeBed} title="Resize bed" style={{position:"absolute",bottom:0,right:0,width:16,height:16,cursor:"nwse-resize",zIndex:7,touchAction:"none",pointerEvents:"auto"}}><svg width="16" height="16" viewBox="0 0 16 16" style={{pointerEvents:"none"}}><path d="M 14 14 L 14 9 M 14 14 L 9 14 M 14 14 L 14 4 M 14 14 L 4 14" stroke={T.purple} strokeWidth="1.4" fill="none" strokeLinecap="round"/></svg></div></>,onDragBed);})()}
       {zoneDiv("m",{left:`${layout.m.l}%`,top:`${layout.m.t}%`,width:`${layout.m.w}%`,height:`${layout.m.h}%`},"MAYO",originCount(mOnM,bOnM),MC,bM>0?<span style={{fontSize:8,fontFamily:MO,color:T.muted,pointerEvents:"none"}}>base <span style={{color:MC,fontWeight:700}}>{bM}</span></span>:null,onDrag("m",layout.m.w,layout.m.h),true)}
       {zoneDiv("b",{left:`${layout.b.l}%`,top:`${layout.b.t}%`,width:`${layout.b.w}%`,height:`${layout.b.h}%`},"BACK TABLE",originCount(mOnB,bOnB),BC,bB>0?<span style={{fontSize:8,fontFamily:MO,color:T.muted,pointerEvents:"none"}}>base <span style={{color:BC,fontWeight:700}}>{bB}</span></span>:null,onDrag("b",layout.b.w,layout.b.h),true)}
       {zoneDiv("d",{left:`${layout.d.l}%`,top:`${layout.d.t}%`,width:`${layout.d.w}%`,height:`${layout.d.h}%`},"DISPOSED",originCount(mOnD,bOnD),T.amber,null,onDrag("d",layout.d.w,layout.d.h),true)}
@@ -1458,7 +1489,7 @@ function SettingsScreen({T}){
         </div>);})}
       </Cd>
       <Cd T={T} style={{flex:1,padding:14,minHeight:0,overflow:"hidden"}}><Lb T={T}>Alerts</Lb><div style={{flex:1,overflowY:"auto",minHeight:0}}>{[{name:"Item Drop Detection",sev:"critical",en:true},{name:"Count Mismatch",sev:"critical",en:true},{name:"Staff Zone Breach",sev:"high",en:true},{name:"Time Out Incomplete",sev:"critical",en:true},{name:"Mid-Case Tray",sev:"medium",en:true},{name:"Camera Occlusion",sev:"medium",en:true},{name:"Idle Warning",sev:"low",en:false},{name:"Turnover Exceeded",sev:"low",en:true}].map((al,i)=>{const sc=al.sev==="critical"?T.red:al.sev==="high"?T.orange:al.sev==="medium"?T.amber:T.muted;return(<div key={i} style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"8px 0",borderBottom:`1px solid ${T.border}`,opacity:al.en?1:.4}}><div style={{display:"flex",alignItems:"center",gap:8}}><div style={{width:8,height:8,borderRadius:4,background:al.en?sc:T.faint}}/><span style={{fontSize:15,fontFamily:SA,color:T.text}}>{al.name}</span></div><P color={sc} T={T} small filled={al.en}>{al.sev}</P></div>);})}</div>
-        <div style={{flexShrink:0,marginTop:8,paddingTop:10,borderTop:`1px solid ${T.border}`,display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8}}>{[{l:"AI",v:"ORKing© v1.0.3"},{l:"CV",v:"YOLO-Surg v8"},{l:"NLU",v:"Tracki© v2.1"}].map((s,i)=>(<div key={i}><div style={{fontSize:10,fontFamily:MO,color:T.muted,textTransform:"uppercase"}}>{s.l}</div><div style={{fontSize:14,fontWeight:600,fontFamily:MO,color:T.teal,marginTop:2}}>{s.v}</div></div>))}</div>
+        <div style={{flexShrink:0,marginTop:8,paddingTop:10,borderTop:`1px solid ${T.border}`,display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8}}>{[{l:"AI",v:"ORKing© v1.0.4"},{l:"CV",v:"YOLO-Surg v8"},{l:"NLU",v:"Tracki© v2.1"}].map((s,i)=>(<div key={i}><div style={{fontSize:10,fontFamily:MO,color:T.muted,textTransform:"uppercase"}}>{s.l}</div><div style={{fontSize:14,fontWeight:600,fontFamily:MO,color:T.teal,marginTop:2}}>{s.v}</div></div>))}</div>
       </Cd>
     </div>
     <div style={{display:"flex",flexDirection:"column",gap:10,minHeight:0,overflow:"hidden"}}>
@@ -1761,7 +1792,7 @@ export default function App() {
         {/* LEFT: Logo + Case info */}
         <img src={T.n==="dark"?"/assets/trackimed-logo-white.png":"/assets/trackimed-logo.png"} alt="TrackiMed" style={{height:28}} onError={(e)=>{e.target.style.display="none";}}/>
         <div style={{borderLeft:`2px solid ${T.border}`,paddingLeft:10,marginLeft:10,marginRight:12}}>
-          <div style={{fontSize:15,fontWeight:700,color:T.text,fontFamily:SA}}>ORKing <span style={{color:T.teal,fontWeight:400,fontSize:10,fontFamily:MO}}>v1.0.3</span> <span style={{color:T.muted,fontWeight:400,fontSize:12,fontFamily:MO}}>{user.or} · {(()=>{const d=new Date(procStart-2071*1000);return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")} ${String(d.getHours()).padStart(2,"0")}:${String(d.getMinutes()).padStart(2,"0")}`;})()}</span></div>
+          <div style={{fontSize:15,fontWeight:700,color:T.text,fontFamily:SA}}>ORKing <span style={{color:T.teal,fontWeight:400,fontSize:10,fontFamily:MO}}>v1.0.4</span> <span style={{color:T.muted,fontWeight:400,fontSize:12,fontFamily:MO}}>{user.or} · {(()=>{const d=new Date(procStart-2071*1000);return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")} ${String(d.getHours()).padStart(2,"0")}:${String(d.getMinutes()).padStart(2,"0")}`;})()}</span></div>
           <div style={{fontSize:12,fontFamily:MO,color:T.muted}}>Case #{PROCEDURE.id} · <span style={{fontWeight:800,color:T.text,fontSize:13,fontFamily:SA}}>{PROCEDURE.type}</span></div>
         </div>
 
