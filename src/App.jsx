@@ -533,12 +533,44 @@ function ORZoneMap({T,items,height=180}) {
     const up=()=>{
       document.removeEventListener("mousemove",move);document.removeEventListener("mouseup",up);
       document.removeEventListener("touchmove",move);document.removeEventListener("touchend",up);
-      if(!moved){setLayout(p=>({...p,bedAngle:((p.bedAngle||0)+90)%360}));}
+      if(!moved){setLayout(p=>({...p,bedAngle:((p.bedAngle||0)+45)%360}));}
     };
     document.addEventListener("mousemove",move);document.addEventListener("mouseup",up);
     document.addEventListener("touchmove",move,{passive:false});document.addEventListener("touchend",up);
   };
   const resizeHandle=(key,color)=>(<div onMouseDown={onResize(key)} onTouchStart={onResize(key)} title="Resize" style={{position:"absolute",bottom:0,right:0,width:14,height:14,cursor:"nwse-resize",zIndex:6,touchAction:"none",pointerEvents:"auto"}}><svg width="14" height="14" viewBox="0 0 14 14" style={{pointerEvents:"none"}}><path d="M 12 12 L 12 8 M 12 12 L 8 12 M 12 12 L 12 3 M 12 12 L 3 12" stroke={color||T.muted} strokeWidth="1.2" fill="none" strokeLinecap="round"/></svg></div>);
+  const onRotateKey=(key)=>(e)=>{
+    e.stopPropagation();
+    if(!mapRef.current)return;
+    pushHistory();
+    const rect=mapRef.current.getBoundingClientRect();
+    const obj=layout[key];
+    let cx,cy;
+    if(obj.w!==undefined){cx=rect.left+rect.width*((obj.l+obj.w/2)/100);cy=rect.top+rect.height*((obj.t+obj.h/2)/100);}
+    else{cx=rect.left+rect.width*(obj.l/100);cy=rect.top+rect.height*(obj.t/100);}
+    const isTouch=!!e.touches;
+    const startX=isTouch?e.touches[0].clientX:e.clientX;
+    const startY=isTouch?e.touches[0].clientY:e.clientY;
+    let moved=false;
+    const move=(ev)=>{
+      const px=ev.touches?ev.touches[0].clientX:ev.clientX;
+      const py=ev.touches?ev.touches[0].clientY:ev.clientY;
+      if(!moved&&(Math.abs(px-startX)>6||Math.abs(py-startY)>6))moved=true;
+      if(!moved)return;
+      let angle=Math.atan2(py-cy,px-cx)*180/Math.PI+90;
+      angle=Math.round(angle/5)*5;
+      setLayout(p=>({...p,[key]:{...p[key],angle}}));
+      if(ev.touches)ev.preventDefault();
+    };
+    const up=()=>{
+      document.removeEventListener("mousemove",move);document.removeEventListener("mouseup",up);
+      document.removeEventListener("touchmove",move);document.removeEventListener("touchend",up);
+      if(!moved){setLayout(p=>({...p,[key]:{...p[key],angle:((p[key]?.angle||0)+45)%360}}));}
+    };
+    document.addEventListener("mousemove",move);document.addEventListener("mouseup",up);
+    document.addEventListener("touchmove",move,{passive:false});document.addEventListener("touchend",up);
+  };
+  const rotateHandle=(key,color,size=28)=>{const ka=layout[key]?.angle||0;return(<div onMouseDown={onRotateKey(key)} onTouchStart={onRotateKey(key)} title="Tap to rotate 90° • drag in a circle to free-rotate" style={{position:"absolute",left:"50%",top:"50%",transform:`translate(-50%,-50%) rotate(${-ka}deg)`,width:size,height:size,borderRadius:"50%",cursor:"grab",zIndex:7,touchAction:"none",pointerEvents:"auto",background:(color||T.muted)+"22",border:`1.5px dashed ${color||T.muted}`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:Math.round(size*0.5),color:color||T.muted,fontWeight:700,lineHeight:1,userSelect:"none"}}>↻</div>);};
   const bM=items.filter(i=>i.z==="mayo").reduce((s,i)=>s+i.init,0),bB=items.filter(i=>i.z==="back_table").reduce((s,i)=>s+i.init,0);
   // Origin tracking: how many from each home zone are in each current zone
   const mOnM=items.filter(i=>i.z==="mayo").reduce((s,i)=>s+i.loc.m,0);           // mayo-origin on mayo
@@ -577,7 +609,24 @@ function ORZoneMap({T,items,height=180}) {
   const zoneNames={m:"Mayo Stand",b:"Back Table",p:"Patient",d:"Disposed"};
   const zoneColors={m:MC,b:BC,p:T.purple,d:T.amber};
   const onZoneEnter=(zk)=>{setHover(zk);};
-  const zoneDiv=(zk,pos,label,count,color,extra,dragHandler,resizable)=>(<div onMouseEnter={()=>onZoneEnter(zk)} onMouseLeave={()=>setHover(null)} onMouseDown={dragHandler} onTouchStart={dragHandler} style={{position:"absolute",...pos,border:hover===zk?`1.5px solid ${color}`:`1px dashed ${color}55`,borderRadius:3,background:hover===zk?color+"24":"transparent",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",cursor:dragHandler?"move":"pointer",zIndex:5,transition:"background .15s, border-color .15s",touchAction:dragHandler?"none":undefined,userSelect:"none"}}><span style={{fontSize:10,fontFamily:MO,color,fontWeight:700,textTransform:"uppercase",letterSpacing:1.2,pointerEvents:"none",lineHeight:1.2,textShadow:T.n==="dark"?"0 1px 2px rgba(0,0,0,.7)":"0 1px 2px rgba(255,255,255,.85)"}}>{label}</span><span style={{fontSize:20,fontFamily:MO,fontWeight:800,pointerEvents:"none",lineHeight:1.1,marginTop:2,textShadow:T.n==="dark"?"0 1px 2px rgba(0,0,0,.7)":"0 1px 2px rgba(255,255,255,.85)"}}>{count}</span>{extra}{resizable&&resizeHandle(zk,color)}</div>);
+  const zoneDiv=(zk,pos,label,count,color,extra,dragHandler,resizable,rotatable,topAligned,externalAngle)=>{
+    const localAng=rotatable&&layout[zk]?.angle||0;
+    const ang=externalAngle!=null?externalAngle:localAng;
+    const userTransform=pos.transform||"";
+    // Only the LOCAL angle is composed into the box rotation;
+    // externalAngle is assumed to already be in pos.transform (applied by caller)
+    const finalTransform=localAng?`${userTransform} rotate(${localAng}deg)`.trim():userTransform;
+    const finalPos={...pos,...(finalTransform?{transform:finalTransform}:{})};
+    // Counter-rotate the text content so it stays readable regardless of zone rotation
+    const counterT=ang?`rotate(${-ang}deg)`:undefined;
+    const compact=rotatable||topAligned;
+    // Detect "flipped" rotation (90°-270°) so label+count always render at the visual top
+    const normAng=((ang%360)+360)%360;
+    const flipped=normAng>90&&normAng<270;
+    const labelEdge=flipped?{bottom:4}:{top:4};
+    const extraEdge=flipped?{top:4}:{bottom:4};
+    return(<div onMouseEnter={()=>onZoneEnter(zk)} onMouseLeave={()=>setHover(null)} onMouseDown={dragHandler} onTouchStart={dragHandler} style={{position:"absolute",...finalPos,border:hover===zk?`1.5px solid ${color}`:`1px dashed ${color}55`,borderRadius:3,background:hover===zk?color+"24":"transparent",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:0,cursor:dragHandler?"move":"pointer",zIndex:5,transition:"background .15s, border-color .15s",touchAction:dragHandler?"none":undefined,userSelect:"none"}}>{compact?<div style={{position:"absolute",left:0,right:0,...labelEdge,display:"flex",flexDirection:"row",alignItems:"center",justifyContent:"center",gap:6,pointerEvents:"none",transform:counterT,transformOrigin:"50% 50%"}}><span style={{fontSize:10,fontFamily:MO,color,fontWeight:700,textTransform:"uppercase",letterSpacing:1.2,lineHeight:1.2,textShadow:T.n==="dark"?"0 1px 2px rgba(0,0,0,.7)":"0 1px 2px rgba(255,255,255,.85)"}}>{label}</span><span style={{fontSize:16,fontFamily:MO,fontWeight:800,lineHeight:1.1,textShadow:T.n==="dark"?"0 1px 2px rgba(0,0,0,.7)":"0 1px 2px rgba(255,255,255,.85)"}}>{count}</span></div>:<div style={{display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",pointerEvents:"none",flexShrink:0}}><span style={{fontSize:10,fontFamily:MO,color,fontWeight:700,textTransform:"uppercase",letterSpacing:1.2,lineHeight:1.2,textShadow:T.n==="dark"?"0 1px 2px rgba(0,0,0,.7)":"0 1px 2px rgba(255,255,255,.85)"}}>{label}</span><span style={{fontSize:20,fontFamily:MO,fontWeight:800,lineHeight:1.1,marginTop:2,textShadow:T.n==="dark"?"0 1px 2px rgba(0,0,0,.7)":"0 1px 2px rgba(255,255,255,.85)"}}>{count}</span>{extra}</div>}{compact&&extra&&<div style={{position:"absolute",left:0,right:0,...extraEdge,display:"flex",justifyContent:"center",pointerEvents:"none",transform:counterT,transformOrigin:"50% 50%"}}>{extra}</div>}{resizable&&resizeHandle(zk,color)}{rotatable&&rotateHandle(zk,color,28)}</div>);
+  };
   const tipD=hover?tipData(hover):[];
   const isFlex=height==="100%";
   const isDark=T.n==="dark";
@@ -613,16 +662,17 @@ function ORZoneMap({T,items,height=180}) {
               <div style={{width:"18%",height:"45%",background:T.cyan,opacity:0.45,position:"absolute",left:"30%"}}/>
               <div style={{width:"18%",height:"45%",background:T.cyan,opacity:0.45,position:"absolute",left:"55%"}}/>
             </div>
-            <span style={{fontSize:9,fontFamily:MO,fontWeight:700,color:T.cyan,letterSpacing:0.5,whiteSpace:"nowrap",position:"relative",zIndex:1}}>ANESTHESIA</span>
+            <span style={{fontSize:9,fontFamily:MO,fontWeight:700,color:T.cyan,letterSpacing:0.5,whiteSpace:"nowrap",position:"relative",zIndex:1,display:"inline-block",transform:`rotate(${-(layout.bedAngle||0)}deg)`,transformOrigin:"50% 50%"}}>ANESTHESIA</span>
           </div>
         </div>);
       })()}
       {/* Undo button — top-right */}
       <button onClick={undo} disabled={history.length===0} title={history.length===0?"Nothing to undo":`Undo (${history.length})`} style={{position:"absolute",top:6,right:6,zIndex:9,width:32,height:32,borderRadius:"50%",background:history.length===0?T.card2:T.card,border:`1px solid ${T.border}`,cursor:history.length===0?"not-allowed":"pointer",fontSize:16,color:history.length===0?T.muted:T.text,display:"flex",alignItems:"center",justifyContent:"center",lineHeight:1,opacity:history.length===0?0.4:1,boxShadow:"0 1px 3px rgba(0,0,0,0.15)"}}>↶</button>
-      {/* Sterile field — draggable rectangle with label handle + resize handle */}
-      <div style={{position:"absolute",left:`${layout.sf.l}%`,top:`${layout.sf.t}%`,width:`${layout.sf.w}%`,height:`${layout.sf.h}%`,border:`1.5px dashed ${T.teal}88`,borderRadius:4,pointerEvents:"none",zIndex:1}}>
-        <div onMouseDown={onDrag("sf",layout.sf.w,layout.sf.h)} onTouchStart={onDrag("sf",layout.sf.w,layout.sf.h)} title="Sterile Field — drag to move" style={{position:"absolute",top:-9,left:6,fontSize:9,fontFamily:MO,color:T.teal,background:floorBg,padding:"2px 6px",fontWeight:700,letterSpacing:1,pointerEvents:"auto",cursor:"move",border:`1px solid ${T.teal}66`,borderRadius:2,touchAction:"none"}}>STERILE FIELD</div>
+      {/* Sterile field — draggable, resizable, rotatable rectangle */}
+      <div style={{position:"absolute",left:`${layout.sf.l}%`,top:`${layout.sf.t}%`,width:`${layout.sf.w}%`,height:`${layout.sf.h}%`,border:`1.5px dashed ${T.teal}88`,borderRadius:4,pointerEvents:"none",zIndex:1,transform:`rotate(${layout.sf?.angle||0}deg)`,transformOrigin:"50% 50%"}}>
+        <div onMouseDown={onDrag("sf",layout.sf.w,layout.sf.h)} onTouchStart={onDrag("sf",layout.sf.w,layout.sf.h)} title="Sterile Field — drag to move" style={{position:"absolute",top:-9,left:6,fontSize:9,fontFamily:MO,color:T.teal,background:floorBg,padding:"2px 6px",fontWeight:700,letterSpacing:1,pointerEvents:"auto",cursor:"move",border:`1px solid ${T.teal}66`,borderRadius:2,touchAction:"none",transform:`rotate(${-(layout.sf?.angle||0)}deg)`,transformOrigin:"left top"}}>STERILE FIELD</div>
         {resizeHandle("sf",T.teal)}
+        {rotateHandle("sf",T.teal)}
       </div>
       {/* Doors — draggable floor-plan icons that flip to match their wall */}
       {(layout.doors||[]).map((d,i)=>{
@@ -651,16 +701,17 @@ function ORZoneMap({T,items,height=180}) {
           <span style={{fontSize:7,color:T.cyan,fontFamily:MO,fontWeight:800,marginTop:1,letterSpacing:0.3}}>{s.role}</span>
         </div>:null
       ))}
-      {/* EMR Station — independently draggable */}
-      {layout.emr&&<div onMouseDown={onDrag("emr")} onTouchStart={onDrag("emr")} title="EMR Station — drag to reposition" style={{position:"absolute",left:`${layout.emr.l}%`,top:`${layout.emr.t}%`,transform:"translate(-50%,-50%)",width:64,height:48,borderRadius:4,background:isDark?"#1a2330":"#dbe2ea",border:`1.5px solid ${T.muted}`,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",cursor:"move",zIndex:4,boxShadow:"0 2px 6px rgba(0,0,0,0.18)",userSelect:"none",touchAction:"none"}}>
-        <span style={{fontSize:22,lineHeight:1}}>💻</span>
-        <span style={{fontSize:9,color:T.muted,fontFamily:MO,fontWeight:800,letterSpacing:0.7,marginTop:2}}>EMR</span>
+      {/* EMR Station — independently draggable, rotatable; icon rotates with chip, label stays readable */}
+      {layout.emr&&<div onMouseDown={onDrag("emr")} onTouchStart={onDrag("emr")} title="EMR Station — drag to reposition" style={{position:"absolute",left:`${layout.emr.l}%`,top:`${layout.emr.t}%`,transform:`translate(-50%,-50%) rotate(${layout.emr?.angle||0}deg)`,width:64,height:48,borderRadius:4,background:isDark?"#1a2330":"#dbe2ea",border:`1.5px solid ${T.muted}`,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",cursor:"move",zIndex:4,boxShadow:"0 2px 6px rgba(0,0,0,0.18)",userSelect:"none",touchAction:"none"}}>
+        <span style={{fontSize:22,lineHeight:1,pointerEvents:"none"}}>💻</span>
+        <span style={{fontSize:9,color:T.muted,fontFamily:MO,fontWeight:800,letterSpacing:0.7,marginTop:2,pointerEvents:"none",transform:`rotate(${-(layout.emr?.angle||0)}deg)`,transformOrigin:"50% 50%",display:"inline-block"}}>EMR</span>
+        {rotateHandle("emr",T.muted,22)}
       </div>}
       {/* Interactive zones */}
-      {(()=>{const bw=layout.bed?.w??21,bh=layout.bed?.h??48;return zoneDiv("p",{left:`${(layout.bed?.cx||47.5)-bw/2}%`,top:`${(layout.bed?.cy||50)-bh/2}%`,width:`${bw}%`,height:`${bh}%`,transform:`rotate(${layout.bedAngle||0}deg)`,transformOrigin:"50% 50%"},"PATIENT",originCount(mOnP,bOnP),T.purple,<><span style={{fontSize:8,fontFamily:MO,color:T.purple+"99",pointerEvents:"none",marginTop:2}}>operative field</span><div onMouseDown={onResizeBed} onTouchStart={onResizeBed} title="Resize bed" style={{position:"absolute",bottom:0,right:0,width:16,height:16,cursor:"nwse-resize",zIndex:7,touchAction:"none",pointerEvents:"auto"}}><svg width="16" height="16" viewBox="0 0 16 16" style={{pointerEvents:"none"}}><path d="M 14 14 L 14 9 M 14 14 L 9 14 M 14 14 L 14 4 M 14 14 L 4 14" stroke={T.purple} strokeWidth="1.4" fill="none" strokeLinecap="round"/></svg></div></>,onDragBed);})()}
-      {zoneDiv("m",{left:`${layout.m.l}%`,top:`${layout.m.t}%`,width:`${layout.m.w}%`,height:`${layout.m.h}%`},"MAYO",originCount(mOnM,bOnM),MC,bM>0?<span style={{fontSize:8,fontFamily:MO,color:T.muted,pointerEvents:"none"}}>base <span style={{color:MC,fontWeight:700}}>{bM}</span></span>:null,onDrag("m",layout.m.w,layout.m.h),true)}
-      {zoneDiv("b",{left:`${layout.b.l}%`,top:`${layout.b.t}%`,width:`${layout.b.w}%`,height:`${layout.b.h}%`},"BACK TABLE",originCount(mOnB,bOnB),BC,bB>0?<span style={{fontSize:8,fontFamily:MO,color:T.muted,pointerEvents:"none"}}>base <span style={{color:BC,fontWeight:700}}>{bB}</span></span>:null,onDrag("b",layout.b.w,layout.b.h),true)}
-      {zoneDiv("d",{left:`${layout.d.l}%`,top:`${layout.d.t}%`,width:`${layout.d.w}%`,height:`${layout.d.h}%`},"DISPOSED",originCount(mOnD,bOnD),T.amber,null,onDrag("d",layout.d.w,layout.d.h),true)}
+      {(()=>{const bw=layout.bed?.w??21,bh=layout.bed?.h??48;return zoneDiv("p",{left:`${(layout.bed?.cx||47.5)-bw/2}%`,top:`${(layout.bed?.cy||50)-bh/2}%`,width:`${bw}%`,height:`${bh}%`,transform:`rotate(${layout.bedAngle||0}deg)`,transformOrigin:"50% 50%"},"PATIENT",originCount(mOnP,bOnP),T.purple,<><span style={{fontSize:8,fontFamily:MO,color:T.purple+"99",pointerEvents:"none"}}>operative field</span><div onMouseDown={onResizeBed} onTouchStart={onResizeBed} title="Resize bed" style={{position:"absolute",bottom:0,right:0,width:16,height:16,cursor:"nwse-resize",zIndex:7,touchAction:"none",pointerEvents:"auto"}}><svg width="16" height="16" viewBox="0 0 16 16" style={{pointerEvents:"none"}}><path d="M 14 14 L 14 9 M 14 14 L 9 14 M 14 14 L 14 4 M 14 14 L 4 14" stroke={T.purple} strokeWidth="1.4" fill="none" strokeLinecap="round"/></svg></div></>,onDragBed,false,false,true,layout.bedAngle||0);})()}
+      {zoneDiv("m",{left:`${layout.m.l}%`,top:`${layout.m.t}%`,width:`${layout.m.w}%`,height:`${layout.m.h}%`},"MAYO",originCount(mOnM,bOnM),MC,bM>0?<span style={{fontSize:8,fontFamily:MO,color:T.muted,pointerEvents:"none"}}>base <span style={{color:MC,fontWeight:700}}>{bM}</span></span>:null,onDrag("m",layout.m.w,layout.m.h),true,true)}
+      {zoneDiv("b",{left:`${layout.b.l}%`,top:`${layout.b.t}%`,width:`${layout.b.w}%`,height:`${layout.b.h}%`},"BACK TABLE",originCount(mOnB,bOnB),BC,bB>0?<span style={{fontSize:8,fontFamily:MO,color:T.muted,pointerEvents:"none"}}>base <span style={{color:BC,fontWeight:700}}>{bB}</span></span>:null,onDrag("b",layout.b.w,layout.b.h),true,true)}
+      {zoneDiv("d",{left:`${layout.d.l}%`,top:`${layout.d.t}%`,width:`${layout.d.w}%`,height:`${layout.d.h}%`},"DISPOSED",originCount(mOnD,bOnD),T.amber,null,onDrag("d",layout.d.w,layout.d.h),true,true)}
       {/* Rotation knob — tap rotates 90° CW; drag in a circle for free rotation */}
       <div onMouseDown={onRotate} onTouchStart={onRotate} title="Tap to rotate 90° • drag in a circle for free rotation" style={{position:"absolute",left:`${layout.bed?.cx||47.5}%`,top:`${layout.bed?.cy||50}%`,transform:"translate(-50%,-50%)",width:44,height:44,borderRadius:"50%",background:T.purple+"2a",border:`1.5px dashed ${T.purple}`,display:"flex",alignItems:"center",justifyContent:"center",cursor:"grab",zIndex:8,fontSize:22,color:T.purple,userSelect:"none",touchAction:"none",fontWeight:700}}>↻</div>
     </div>
