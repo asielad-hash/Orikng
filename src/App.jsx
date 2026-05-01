@@ -225,7 +225,7 @@ function FloatingPanel({panel,update,bringToFront,T,children,headerColor,onInter
   const CS=14; // corner size
   // helper to attach mouse + touch handler
   const handle=(edge,style,extra={})=>{const fn=onResizeStart(edge);return{onMouseDown:fn,onTouchStart:fn,style:{position:"absolute",touchAction:"none",zIndex:3,...style,...extra}};};
-  return(<div style={{position:"absolute",left:panel.x,top:panel.y,width:panel.w,height:panel.h,zIndex:panel.z||1,background:T.card,border:`1px solid ${T.border}`,borderRadius:4,boxShadow:"0 4px 16px rgba(0,0,0,0.18)",display:"flex",flexDirection:"column",overflow:"hidden"}}>
+  return(<div onMouseDown={()=>bringToFront(panel.id)} onTouchStart={()=>bringToFront(panel.id)} style={{position:"absolute",left:panel.x,top:panel.y,width:panel.w,height:panel.h,zIndex:panel.z||1,background:T.card,border:`1px solid ${T.border}`,borderRadius:4,boxShadow:"0 4px 16px rgba(0,0,0,0.18)",display:"flex",flexDirection:"column",overflow:"hidden"}}>
     <div ref={dragRef} onMouseDown={onDragStart} onTouchStart={onDragStart} onMouseEnter={()=>bringToFront(panel.id)} style={{display:"flex",alignItems:"center",gap:8,padding:"6px 10px",background:T.card2,borderBottom:`2px solid ${hc}`,cursor:"grab",userSelect:"none",touchAction:"none",flexShrink:0}}>
       <span style={{fontSize:11,fontFamily:MO,color:T.muted,letterSpacing:1}}>⋮⋮</span>
       <span style={{flex:1,fontSize:13,fontWeight:700,color:T.text,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{panel.title}</span>
