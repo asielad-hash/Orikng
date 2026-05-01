@@ -339,6 +339,7 @@ const OR_LAYOUT_DEFAULTS={
   ast:{l:32,t:50},
   scr:{l:47,t:18},
   cir:{l:12,t:88},
+  pa:{l:42,t:60},
   bed:{cx:47.5,cy:50},
   bedAngle:0,
 };
@@ -581,7 +582,7 @@ function ORZoneMap({T,items,height=180}) {
               <div style={{width:"18%",height:"45%",background:T.cyan,opacity:0.45,position:"absolute",left:"30%"}}/>
               <div style={{width:"18%",height:"45%",background:T.cyan,opacity:0.45,position:"absolute",left:"55%"}}/>
             </div>
-            <span style={{fontSize:9,fontFamily:MO,fontWeight:700,color:T.cyan,letterSpacing:0.5,transform:`rotate(${-ang}deg)`,whiteSpace:"nowrap",position:"relative",zIndex:1}}>ANESTHESIA</span>
+            <span style={{fontSize:9,fontFamily:MO,fontWeight:700,color:T.cyan,letterSpacing:0.5,whiteSpace:"nowrap",position:"relative",zIndex:1}}>ANESTHESIA</span>
           </div>
         </div>);
       })()}
@@ -613,12 +614,17 @@ function ORZoneMap({T,items,height=180}) {
         );
       })}
       {/* Staff — draggable icon chips */}
-      {[{key:"srg",role:"SRG",label:"Surgeon",icon:"🔪"},{key:"ast",role:"AST",label:"Assistant",icon:"🩺"},{key:"scr",role:"SCR",label:"Scrub Tech",icon:"🧤"},{key:"cir",role:"CIR",label:"Circulator",icon:"📋"}].map(s=>(
+      {[{key:"srg",role:"SRG",label:"Surgeon",icon:"🔪"},{key:"ast",role:"AST",label:"Assistant",icon:"🩺"},{key:"pa",role:"PA",label:"Physician Assistant",icon:"👨‍⚕️"},{key:"scr",role:"SCR",label:"Scrub Tech",icon:"🧤"},{key:"cir",role:"CIR",label:"Circulator",icon:"📋"}].map(s=>(layout[s.key]?
         <div key={s.key} onMouseDown={onDrag(s.key)} onTouchStart={onDrag(s.key)} title={`${s.label} — drag to reposition`} style={{position:"absolute",left:`${layout[s.key].l}%`,top:`${layout[s.key].t}%`,transform:"translate(-50%,-50%)",width:38,height:38,borderRadius:"50%",background:T.cyan+"20",border:`1.5px solid ${T.cyan}`,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",cursor:"move",zIndex:4,boxShadow:"0 2px 6px rgba(0,0,0,0.18)",userSelect:"none",touchAction:"none"}}>
           <span style={{fontSize:14,lineHeight:1}}>{s.icon}</span>
           <span style={{fontSize:7,color:T.cyan,fontFamily:MO,fontWeight:800,marginTop:1,letterSpacing:0.3}}>{s.role}</span>
-        </div>
+        </div>:null
       ))}
+      {/* EMR station — attached next to the CIR */}
+      {layout.cir&&<div title="EMR Station — used by Circulator" style={{position:"absolute",left:`calc(${layout.cir.l}% + 26px)`,top:`${layout.cir.t}%`,transform:"translate(0,-50%)",width:32,height:24,borderRadius:3,background:isDark?"#1a2330":"#dbe2ea",border:`1px solid ${T.muted}`,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",zIndex:3,boxShadow:"0 1px 3px rgba(0,0,0,0.18)",pointerEvents:"none",userSelect:"none"}}>
+        <span style={{fontSize:11,lineHeight:1}}>💻</span>
+        <span style={{fontSize:6,color:T.muted,fontFamily:MO,fontWeight:800,letterSpacing:0.5,marginTop:1}}>EMR</span>
+      </div>}
       {/* Interactive zones */}
       {zoneDiv("p",{left:`${(layout.bed?.cx||47.5)-10.5}%`,top:`${(layout.bed?.cy||50)-27.5}%`,width:"21%",height:"55%",transform:`rotate(${layout.bedAngle||0}deg)`,transformOrigin:"50% 50%"},"PATIENT",originCount(mOnP,bOnP),T.purple,<span style={{fontSize:8,fontFamily:MO,color:T.purple+"99",pointerEvents:"none",marginTop:2}}>operative field</span>,onDragBed)}
       {zoneDiv("m",{left:`${layout.m.l}%`,top:`${layout.m.t}%`,width:`${layout.m.w}%`,height:`${layout.m.h}%`},"MAYO",originCount(mOnM,bOnM),MC,bM>0?<span style={{fontSize:8,fontFamily:MO,color:T.muted,pointerEvents:"none"}}>base <span style={{color:MC,fontWeight:700}}>{bM}</span></span>:null,onDrag("m",layout.m.w,layout.m.h),true)}
@@ -701,7 +707,7 @@ function InvScreen({T,pendingItem,onPendingClear,elapsed=0,itemsOverride=null,it
       {/* CATEGORIES panel */}
       <FloatingPanel panel={invPanels.panels.find(p=>p.id==="categories")} update={invPanels.update} bringToFront={invPanels.bringToFront} onInteractStart={invPanels.showGrid} onInteractEnd={invPanels.hideGrid} T={T} headerColor={T.teal} icon="📚"><div style={{height:"100%",display:"flex",flexDirection:"column",gap:8,minHeight:0,padding:10,overflow:"auto"}}>
         <div style={{flexShrink:0}}>
-          <div style={{fontSize:16,fontWeight:700,color:T.teal,fontFamily:SA,cursor:"pointer",textDecoration:"underline"}} onClick={()=>{import("./kitCatalog").then(m=>window.open(m.getKitPdf(kitName||"Masectomy Tray"),"_blank"));}}>{kitName||"Masectomy Tray"}</div>
+          <div style={{fontSize:16,fontWeight:700,color:T.teal,fontFamily:SA,cursor:"pointer",textDecoration:"underline"}} onClick={()=>{const kn=kitName||PROCEDURE.kit;import("./kitCatalog").then(m=>window.open(m.getKitPdf(kn),"_blank"));}}>{kitName||PROCEDURE.kit}</div>
           <div style={{fontSize:12,fontFamily:MO,color:T.muted}}>{VIS.length} types · {tI} pieces</div>
         </div>
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr 1fr 1fr",gap:4,flexShrink:0}}>{[{l:"Total",v:tI,c:T.text},{l:"Mayo",v:tM,c:T.teal},{l:"Back Tbl",v:tB,c:T.blue},{l:"Patient",v:tP,c:T.purple},{l:"Disposed",v:tD,c:T.amber}].map((m,i)=>(<Cd key={i} T={T} style={{textAlign:"center",padding:"8px 4px"}}><div style={{fontSize:24,fontWeight:800,fontFamily:MO,color:m.c,lineHeight:1}}>{m.v}</div><div style={{fontSize:10,fontFamily:MO,color:T.muted,textTransform:"uppercase",letterSpacing:1,marginTop:3}}>{m.l}</div></Cd>))}</div>
@@ -1210,7 +1216,7 @@ function TnScreen({T,elapsed=0,phasesData=null,itemsOverride=null,itemEventsOver
   const tnPanels=useFloatingPanels("tn_panels_v1",[
     {id:"phase",title:"Phase Performance",x:8,y:8,w:680,h:400,minimized:false,z:1},
     {id:"compliance",title:"Compliance & Safety",x:696,y:8,w:680,h:400,minimized:false,z:2},
-    {id:"kit",title:`Kit Utilization — ${kitName||"Masectomy Tray"}`,x:8,y:416,w:680,h:380,minimized:false,z:3},
+    {id:"kit",title:`Kit Utilization — ${kitName||PROCEDURE.kit}`,x:8,y:416,w:680,h:380,minimized:false,z:3},
     {id:"consumables",title:"Consumables",x:696,y:416,w:680,h:380,minimized:false,z:4},
   ]);
 
@@ -1452,7 +1458,7 @@ function SettingsScreen({T}){
         </div>);})}
       </Cd>
       <Cd T={T} style={{flex:1,padding:14,minHeight:0,overflow:"hidden"}}><Lb T={T}>Alerts</Lb><div style={{flex:1,overflowY:"auto",minHeight:0}}>{[{name:"Item Drop Detection",sev:"critical",en:true},{name:"Count Mismatch",sev:"critical",en:true},{name:"Staff Zone Breach",sev:"high",en:true},{name:"Time Out Incomplete",sev:"critical",en:true},{name:"Mid-Case Tray",sev:"medium",en:true},{name:"Camera Occlusion",sev:"medium",en:true},{name:"Idle Warning",sev:"low",en:false},{name:"Turnover Exceeded",sev:"low",en:true}].map((al,i)=>{const sc=al.sev==="critical"?T.red:al.sev==="high"?T.orange:al.sev==="medium"?T.amber:T.muted;return(<div key={i} style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"8px 0",borderBottom:`1px solid ${T.border}`,opacity:al.en?1:.4}}><div style={{display:"flex",alignItems:"center",gap:8}}><div style={{width:8,height:8,borderRadius:4,background:al.en?sc:T.faint}}/><span style={{fontSize:15,fontFamily:SA,color:T.text}}>{al.name}</span></div><P color={sc} T={T} small filled={al.en}>{al.sev}</P></div>);})}</div>
-        <div style={{flexShrink:0,marginTop:8,paddingTop:10,borderTop:`1px solid ${T.border}`,display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8}}>{[{l:"AI",v:"ORKing© v1.0.2"},{l:"CV",v:"YOLO-Surg v8"},{l:"NLU",v:"Tracki© v2.1"}].map((s,i)=>(<div key={i}><div style={{fontSize:10,fontFamily:MO,color:T.muted,textTransform:"uppercase"}}>{s.l}</div><div style={{fontSize:14,fontWeight:600,fontFamily:MO,color:T.teal,marginTop:2}}>{s.v}</div></div>))}</div>
+        <div style={{flexShrink:0,marginTop:8,paddingTop:10,borderTop:`1px solid ${T.border}`,display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8}}>{[{l:"AI",v:"ORKing© v1.0.3"},{l:"CV",v:"YOLO-Surg v8"},{l:"NLU",v:"Tracki© v2.1"}].map((s,i)=>(<div key={i}><div style={{fontSize:10,fontFamily:MO,color:T.muted,textTransform:"uppercase"}}>{s.l}</div><div style={{fontSize:14,fontWeight:600,fontFamily:MO,color:T.teal,marginTop:2}}>{s.v}</div></div>))}</div>
       </Cd>
     </div>
     <div style={{display:"flex",flexDirection:"column",gap:10,minHeight:0,overflow:"hidden"}}>
@@ -1755,8 +1761,8 @@ export default function App() {
         {/* LEFT: Logo + Case info */}
         <img src={T.n==="dark"?"/assets/trackimed-logo-white.png":"/assets/trackimed-logo.png"} alt="TrackiMed" style={{height:28}} onError={(e)=>{e.target.style.display="none";}}/>
         <div style={{borderLeft:`2px solid ${T.border}`,paddingLeft:10,marginLeft:10,marginRight:12}}>
-          <div style={{fontSize:15,fontWeight:700,color:T.text,fontFamily:SA}}>ORKing <span style={{color:T.teal,fontWeight:400,fontSize:10,fontFamily:MO}}>v1.0.2</span> <span style={{color:T.muted,fontWeight:400,fontSize:12,fontFamily:MO}}>{user.or} · {(()=>{const d=new Date(procStart-2071*1000);return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")} ${String(d.getHours()).padStart(2,"0")}:${String(d.getMinutes()).padStart(2,"0")}`;})()}</span></div>
-          <div style={{fontSize:11,fontFamily:MO,color:T.muted}}>Case #2026-0207-003 · Mastectomy / Reconstruction</div>
+          <div style={{fontSize:15,fontWeight:700,color:T.text,fontFamily:SA}}>ORKing <span style={{color:T.teal,fontWeight:400,fontSize:10,fontFamily:MO}}>v1.0.3</span> <span style={{color:T.muted,fontWeight:400,fontSize:12,fontFamily:MO}}>{user.or} · {(()=>{const d=new Date(procStart-2071*1000);return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")} ${String(d.getHours()).padStart(2,"0")}:${String(d.getMinutes()).padStart(2,"0")}`;})()}</span></div>
+          <div style={{fontSize:12,fontFamily:MO,color:T.muted}}>Case #{PROCEDURE.id} · <span style={{fontWeight:800,color:T.text,fontSize:13,fontFamily:SA}}>{PROCEDURE.type}</span></div>
         </div>
 
         {/* Room State + Phase — left side after case info */}
