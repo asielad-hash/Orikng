@@ -273,16 +273,21 @@ function PanelLauncher({panels,update,bringToFront,T,meta}) {
   const r=80+n*12;
   const fabSize=52;
   const itemSize=42;
+  const FAB_BOTTOM=30;
+  const FAB_LEFT=14;
+  const fanCSS=(px,axis)=>`calc(${px}px + env(safe-area-inset-${axis}, 0px))`;
   const itemPos=(i)=>{
     const t=n===1?0.5:i/(n-1);
     const angle=(Math.PI/2)*t;
-    return {left:14+(fabSize-itemSize)/2+r*Math.sin(angle),bottom:14+(fabSize-itemSize)/2+r*Math.cos(angle)};
+    const lpx=FAB_LEFT+(fabSize-itemSize)/2+r*Math.sin(angle);
+    const bpx=FAB_BOTTOM+(fabSize-itemSize)/2+r*Math.cos(angle);
+    return {left:fanCSS(lpx,"left"),bottom:fanCSS(bpx,"bottom")};
   };
   const handleClick=(p)=>{if(p.minimized)update(p.id,{minimized:false});bringToFront(p.id);setOpen(false);};
   return(<>
     {open&&<div onClick={()=>setOpen(false)} style={{position:"absolute",inset:0,zIndex:9989,background:"rgba(0,0,0,0.08)",cursor:"default"}}/>}
     {panels.map((p,i)=>{
-      const pos=open?itemPos(i):{left:14+(fabSize-itemSize)/2,bottom:14+(fabSize-itemSize)/2};
+      const pos=open?itemPos(i):{left:fanCSS(FAB_LEFT+(fabSize-itemSize)/2,"left"),bottom:fanCSS(FAB_BOTTOM+(fabSize-itemSize)/2,"bottom")};
       const m=meta&&meta[p.id]||{};
       const c=(m.c&&T[m.c])||T.teal;
       const icon=m.i;
@@ -304,7 +309,7 @@ function PanelLauncher({panels,update,bringToFront,T,meta}) {
       }}>{display}{p.minimized&&<span style={{position:"absolute",top:-2,right:-2,width:8,height:8,borderRadius:"50%",background:T.muted,border:`1.5px solid ${T.card}`}}/>}</button>);
     })}
     <button onClick={()=>setOpen(o=>!o)} title={open?"Close":"Panels"} style={{
-      position:"absolute",left:"calc(14px + env(safe-area-inset-left, 0px))",bottom:"calc(60px + env(safe-area-inset-bottom, 0px))",
+      position:"absolute",left:fanCSS(FAB_LEFT,"left"),bottom:fanCSS(FAB_BOTTOM,"bottom"),
       width:fabSize,height:fabSize,borderRadius:"50%",
       background:open?T.red:T.teal,color:"#fff",border:"none",cursor:"pointer",
       WebkitAppearance:"none",appearance:"none",padding:0,margin:0,
@@ -326,29 +331,50 @@ function MinimizedTray({panels,update,T}) {
   </div>);
 }
 
+// ── Shared OR layout store: all ORZoneMap instances stay in sync ──
+const OR_LAYOUT_DEFAULTS={
+  m:{l:60,t:66,w:12,h:18},
+  b:{l:75,t:8,w:22,h:60},
+  d:{l:75,t:73,w:18,h:22},
+  sf:{l:16,t:5,w:60,h:78},
+  doors:[{l:1,t:70,wall:"left"},{l:1,t:18,wall:"left"}],
+  srg:{l:62,t:50},
+  ast:{l:32,t:50},
+  scr:{l:47,t:18},
+  cir:{l:12,t:88},
+  bed:{cx:47.5,cy:50},
+  bedAngle:0,
+};
+let __orLayoutCache=null;
+const __orLayoutSubs=new Set();
+function getORLayout(){
+  if(__orLayoutCache)return __orLayoutCache;
+  try{const s=localStorage.getItem("or_layout_v2");if(s)__orLayoutCache={...OR_LAYOUT_DEFAULTS,...JSON.parse(s)};}catch{}
+  return __orLayoutCache||OR_LAYOUT_DEFAULTS;
+}
+function setORLayout(next){
+  __orLayoutCache=typeof next==="function"?next(getORLayout()):next;
+  try{localStorage.setItem("or_layout_v2",JSON.stringify(__orLayoutCache));}catch{}
+  __orLayoutSubs.forEach(fn=>fn(__orLayoutCache));
+}
+if(typeof window!=="undefined"&&!window.__orLayoutStorageBound){
+  window.__orLayoutStorageBound=true;
+  window.addEventListener("storage",(e)=>{
+    if(e.key==="or_layout_v2"&&e.newValue){
+      try{__orLayoutCache={...OR_LAYOUT_DEFAULTS,...JSON.parse(e.newValue)};__orLayoutSubs.forEach(fn=>fn(__orLayoutCache));}catch{}
+    }
+  });
+}
+
 // ── OR Zone Map with floating tooltip ──
 function ORZoneMap({T,items,height=180}) {
   const [hover,setHover]=useState(null);
   const [expanded,setExpanded]=useState(false);
   const mapRef=useRef(null);
-  const layoutDefaults={
-    m:{l:60,t:66,w:12,h:18},
-    b:{l:75,t:8,w:22,h:60},
-    d:{l:75,t:73,w:18,h:22},
-    sf:{l:16,t:5,w:60,h:78},
-    doors:[{l:1,t:70,wall:"left"},{l:1,t:18,wall:"left"}],
-    srg:{l:62,t:50},
-    ast:{l:32,t:50},
-    scr:{l:47,t:18},
-    cir:{l:12,t:88},
-    bed:{cx:47.5,cy:50},
-    bedAngle:0,
-  };
-  const [layout,setLayout]=useState(()=>{
-    try{const s=localStorage.getItem("or_layout_v2");if(s)return {...layoutDefaults,...JSON.parse(s)};}catch{}
-    return layoutDefaults;
-  });
-  useEffect(()=>{try{localStorage.setItem("or_layout_v2",JSON.stringify(layout));}catch{}},[layout]);
+  const layoutDefaults=OR_LAYOUT_DEFAULTS;
+  const [layout,setLayoutLocal]=useState(getORLayout);
+  useEffect(()=>{const fn=l=>setLayoutLocal(l);__orLayoutSubs.add(fn);return()=>__orLayoutSubs.delete(fn);},[]);
+  const setLayout=setORLayout;
   const [history,setHistory]=useState([]);
   const pushHistory=()=>setHistory(h=>[...h.slice(-29),layout]);
   const undo=()=>{setHistory(h=>{if(h.length===0)return h;setLayout(h[h.length-1]);return h.slice(0,-1);});};
