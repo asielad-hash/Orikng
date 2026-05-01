@@ -183,6 +183,8 @@ const snap=v=>Math.round(v/GRID_SIZE)*GRID_SIZE;
 
 function FloatingPanel({panel,update,bringToFront,T,children,headerColor,icon,onInteractStart,onInteractEnd}) {
   const dragRef=useRef(null);
+  const panelRef=useRef(null);
+  const getParentBounds=()=>{const p=panelRef.current?.parentElement;return p?{w:p.clientWidth,h:p.clientHeight}:null;};
   const onDragStart=e=>{
     bringToFront(panel.id);
     if(onInteractStart)onInteractStart();
@@ -190,7 +192,13 @@ function FloatingPanel({panel,update,bringToFront,T,children,headerColor,icon,on
     const startX=isTouch?e.touches[0].clientX:e.clientX;
     const startY=isTouch?e.touches[0].clientY:e.clientY;
     const startLeft=panel.x;const startTop=panel.y;
-    const move=ev=>{const cx=ev.touches?ev.touches[0].clientX:ev.clientX;const cy=ev.touches?ev.touches[0].clientY:ev.clientY;update(panel.id,{x:Math.max(0,snap(startLeft+cx-startX)),y:Math.max(0,snap(startTop+cy-startY))});if(ev.touches)ev.preventDefault();};
+    const move=ev=>{
+      const cx=ev.touches?ev.touches[0].clientX:ev.clientX;const cy=ev.touches?ev.touches[0].clientY:ev.clientY;
+      let nx=snap(startLeft+cx-startX);let ny=snap(startTop+cy-startY);
+      const b=getParentBounds();if(b){nx=Math.max(0,Math.min(b.w-panel.w,nx));ny=Math.max(0,Math.min(b.h-panel.h,ny));}else{nx=Math.max(0,nx);ny=Math.max(0,ny);}
+      update(panel.id,{x:nx,y:ny});
+      if(ev.touches)ev.preventDefault();
+    };
     const up=()=>{document.removeEventListener("mousemove",move);document.removeEventListener("mouseup",up);document.removeEventListener("touchmove",move);document.removeEventListener("touchend",up);if(onInteractEnd)onInteractEnd();};
     document.addEventListener("mousemove",move);document.addEventListener("mouseup",up);
     document.addEventListener("touchmove",move,{passive:false});document.addEventListener("touchend",up);
@@ -208,10 +216,11 @@ function FloatingPanel({panel,update,bringToFront,T,children,headerColor,icon,on
       const cy=ev.touches?ev.touches[0].clientY:ev.clientY;
       const dx=cx-startX, dy=cy-startY;
       let nw=startW, nh=startH, nx=startL, ny=startT;
-      if(edge.includes("e"))nw=Math.max(220,snap(startW+dx));
-      if(edge.includes("w")){const newW=Math.max(220,snap(startW-dx));nx=startL+(startW-newW);nw=newW;}
-      if(edge.includes("s"))nh=Math.max(150,snap(startH+dy));
-      if(edge.includes("n")){const newH=Math.max(150,snap(startH-dy));ny=startT+(startH-newH);nh=newH;}
+      const b=getParentBounds();
+      if(edge.includes("e")){nw=Math.max(220,snap(startW+dx));if(b)nw=Math.min(nw,b.w-startL);}
+      if(edge.includes("w")){let newW=Math.max(220,snap(startW-dx));if(b)newW=Math.min(newW,startW+startL);nx=startL+(startW-newW);nw=newW;}
+      if(edge.includes("s")){nh=Math.max(150,snap(startH+dy));if(b)nh=Math.min(nh,b.h-startT);}
+      if(edge.includes("n")){let newH=Math.max(150,snap(startH-dy));if(b)newH=Math.min(newH,startH+startT);ny=startT+(startH-newH);nh=newH;}
       update(panel.id,{w:nw,h:nh,x:Math.max(0,nx),y:Math.max(0,ny)});
       if(ev.touches)ev.preventDefault();
     };
@@ -228,7 +237,7 @@ function FloatingPanel({panel,update,bringToFront,T,children,headerColor,icon,on
   const stopBtn={onMouseDown:e=>e.stopPropagation(),onTouchStart:e=>e.stopPropagation()};
   // helper to attach mouse + touch handler
   const handle=(edge,style,extra={})=>{const fn=onResizeStart(edge);return{onMouseDown:fn,onTouchStart:fn,style:{position:"absolute",touchAction:"none",zIndex:3,...style,...extra}};};
-  return(<div onMouseDown={()=>bringToFront(panel.id)} onTouchStart={()=>bringToFront(panel.id)} style={{position:"absolute",left:panel.x,top:panel.y,width:panel.w,height:panel.h,zIndex:panel.z||1,background:T.card,border:`1px solid ${T.border}`,borderRadius:4,boxShadow:"0 4px 16px rgba(0,0,0,0.18)",display:"flex",flexDirection:"column",overflow:"hidden"}}>
+  return(<div ref={panelRef} onMouseDown={()=>bringToFront(panel.id)} onTouchStart={()=>bringToFront(panel.id)} style={{position:"absolute",left:panel.x,top:panel.y,width:panel.w,height:panel.h,zIndex:panel.z||1,background:T.card,border:`1px solid ${T.border}`,borderRadius:4,boxShadow:"0 4px 16px rgba(0,0,0,0.18)",display:"flex",flexDirection:"column",overflow:"hidden"}}>
     <div ref={dragRef} onMouseDown={onDragStart} onTouchStart={onDragStart} onMouseEnter={()=>bringToFront(panel.id)} style={{display:"flex",alignItems:"center",gap:6,padding:"6px 10px",background:T.card2,borderBottom:`2px solid ${hc}`,cursor:"grab",userSelect:"none",touchAction:"none",flexShrink:0}}>
       <span style={{fontSize:10,fontFamily:MO,color:T.muted,letterSpacing:1}}>⋮⋮</span>
       {icon&&<span style={{fontSize:16,lineHeight:1,display:"inline-flex",alignItems:"center"}}>{icon}</span>}
@@ -283,7 +292,7 @@ function PanelLauncher({panels,update,bringToFront,T,meta}) {
         position:"absolute",left:pos.left,bottom:pos.bottom,
         width:itemSize,height:itemSize,borderRadius:"50%",
         background:T.card,color:c,border:`2px solid ${c}`,
-        cursor:"pointer",
+        cursor:"pointer",WebkitAppearance:"none",appearance:"none",padding:0,
         opacity:open?(p.minimized?0.7:1):0,
         transform:`scale(${open?1:0.3})`,
         transition:`left .28s cubic-bezier(.34,1.56,.64,1) ${i*22}ms, bottom .28s cubic-bezier(.34,1.56,.64,1) ${i*22}ms, opacity .2s ${open?i*30:0}ms, transform .25s`,
@@ -295,14 +304,16 @@ function PanelLauncher({panels,update,bringToFront,T,meta}) {
       }}>{display}{p.minimized&&<span style={{position:"absolute",top:-2,right:-2,width:8,height:8,borderRadius:"50%",background:T.muted,border:`1.5px solid ${T.card}`}}/>}</button>);
     })}
     <button onClick={()=>setOpen(o=>!o)} title={open?"Close":"Panels"} style={{
-      position:"absolute",left:14,bottom:14,
+      position:"absolute",left:"calc(14px + env(safe-area-inset-left, 0px))",bottom:"calc(60px + env(safe-area-inset-bottom, 0px))",
       width:fabSize,height:fabSize,borderRadius:"50%",
       background:open?T.red:T.teal,color:"#fff",border:"none",cursor:"pointer",
+      WebkitAppearance:"none",appearance:"none",padding:0,margin:0,
       boxShadow:"0 4px 14px rgba(0,0,0,0.35)",zIndex:9992,
-      fontSize:26,fontWeight:300,lineHeight:1,
+      fontSize:30,fontWeight:400,lineHeight:1,fontFamily:"-apple-system,system-ui,sans-serif",
       transform:`rotate(${open?45:0}deg)`,
       transition:"transform .25s, background .2s",
       display:"flex",alignItems:"center",justifyContent:"center",
+      visibility:"visible",opacity:1,
     }}>+</button>
   </>);
 }
@@ -310,7 +321,7 @@ function PanelLauncher({panels,update,bringToFront,T,meta}) {
 function MinimizedTray({panels,update,T}) {
   const mins=panels.filter(p=>p.minimized);
   if(mins.length===0)return null;
-  return(<div style={{position:"absolute",right:8,bottom:8,display:"flex",gap:6,zIndex:9999,flexWrap:"wrap"}}>
+  return(<div style={{position:"absolute",right:"calc(8px + env(safe-area-inset-right, 0px))",bottom:"calc(34px + env(safe-area-inset-bottom, 0px))",display:"flex",gap:6,zIndex:9999,flexWrap:"wrap"}}>
     {mins.map(p=><button key={p.id} onClick={()=>update(p.id,{minimized:false})} title={`Restore ${p.title}`} style={{padding:"6px 12px",background:T.card,border:`1px solid ${T.border}`,borderTop:`2px solid ${T.teal}`,borderRadius:3,color:T.text,fontSize:12,fontWeight:600,cursor:"pointer",whiteSpace:"nowrap",fontFamily:SA,boxShadow:"0 2px 6px rgba(0,0,0,0.15)"}}>▢ {p.title}</button>)}
   </div>);
 }
@@ -529,20 +540,28 @@ function ORZoneMap({T,items,height=180}) {
         <rect width="200" height="120" fill="url(#orgrid)"/>
         {/* Outer wall */}
         <rect x="2" y="2" width="196" height="116" fill="none" stroke={wallC} strokeWidth="1" opacity="0.7"/>
-        {/* Bed + Anesthesia — translate by bed offset, then rotate around their centroid (95, 60) */}
-        <g transform={`translate(${((layout.bed?.cx||47.5)-47.5)*2} ${((layout.bed?.cy||50)-50)*1.2}) rotate(${layout.bedAngle||0} 95 60)`}>
-          {/* OR table */}
-          <rect x="74" y="20" width="42" height="58" fill={isDark?"#1a2330":"#dbe2ea"} stroke={wallC} strokeWidth="0.5"/>
-          <rect x="78" y="24" width="34" height="50" fill={isDark?"#212d3a":"#cdd6e0"}/>
-          <rect x="80" y="28" width="30" height="42" fill={T.purple} opacity="0.18"/>
-          {/* Anesthesia at head end */}
-          <rect x="74" y="84" width="42" height="14" fill={isDark?"#1a2330":"#cfd8e3"} stroke={T.cyan} strokeWidth="0.5" opacity="0.85"/>
-          <rect x="78" y="87" width="6" height="4" fill={T.cyan} opacity="0.45"/>
-          <rect x="86" y="87" width="6" height="4" fill={T.cyan} opacity="0.45"/>
-          <rect x="94" y="87" width="6" height="4" fill={T.cyan} opacity="0.45"/>
-          <text x="95" y="93.5" textAnchor="middle" fontSize="2.6" fill={T.cyan} fontFamily="ui-monospace,monospace" fontWeight="700" transform={`rotate(${-(layout.bedAngle||0)} 95 93.5)`}>ANESTHESIA</text>
-        </g>
       </svg>
+      {/* Bed + Anesthesia — HTML so rotation is uniform with the patient zone */}
+      {(()=>{
+        const bcx=layout.bed?.cx||47.5,bcy=layout.bed?.cy||50,ang=layout.bedAngle||0;
+        const W=21,BED_H=48,GAP=1.5,ANES_H=11;const TOTAL_H=BED_H+GAP+ANES_H;
+        return(<div style={{position:"absolute",left:`${bcx-W/2}%`,top:`${bcy-BED_H/2}%`,width:`${W}%`,height:`${TOTAL_H}%`,transform:`rotate(${ang}deg)`,transformOrigin:`50% ${(BED_H/2/TOTAL_H)*100}%`,pointerEvents:"none",zIndex:2}}>
+          {/* OR table */}
+          <div style={{position:"absolute",left:0,top:0,width:"100%",height:`${(BED_H/TOTAL_H)*100}%`,background:isDark?"#1a2330":"#dbe2ea",border:`1px solid ${wallC}`,borderRadius:6,overflow:"hidden"}}>
+            <div style={{position:"absolute",left:"7%",top:"6%",right:"7%",bottom:"6%",background:isDark?"#212d3a":"#cdd6e0",borderRadius:4}}/>
+            <div style={{position:"absolute",left:"12%",top:"30%",right:"12%",bottom:"6%",background:T.purple,opacity:0.18,borderRadius:3}}/>
+          </div>
+          {/* Anesthesia */}
+          <div style={{position:"absolute",left:0,bottom:0,width:"100%",height:`${(ANES_H/TOTAL_H)*100}%`,background:isDark?"#1a2330":"#cfd8e3",border:`1px solid ${T.cyan}`,borderRadius:3,display:"flex",alignItems:"center",justifyContent:"center",overflow:"hidden"}}>
+            <div style={{display:"flex",gap:"4%",alignItems:"center",position:"absolute",top:"15%",left:"10%"}}>
+              <div style={{width:"18%",height:"45%",background:T.cyan,opacity:0.45,position:"absolute",left:"5%"}}/>
+              <div style={{width:"18%",height:"45%",background:T.cyan,opacity:0.45,position:"absolute",left:"30%"}}/>
+              <div style={{width:"18%",height:"45%",background:T.cyan,opacity:0.45,position:"absolute",left:"55%"}}/>
+            </div>
+            <span style={{fontSize:9,fontFamily:MO,fontWeight:700,color:T.cyan,letterSpacing:0.5,transform:`rotate(${-ang}deg)`,whiteSpace:"nowrap",position:"relative",zIndex:1}}>ANESTHESIA</span>
+          </div>
+        </div>);
+      })()}
       {/* Undo button — top-right */}
       <button onClick={undo} disabled={history.length===0} title={history.length===0?"Nothing to undo":`Undo (${history.length})`} style={{position:"absolute",top:6,right:6,zIndex:9,width:32,height:32,borderRadius:"50%",background:history.length===0?T.card2:T.card,border:`1px solid ${T.border}`,cursor:history.length===0?"not-allowed":"pointer",fontSize:16,color:history.length===0?T.muted:T.text,display:"flex",alignItems:"center",justifyContent:"center",lineHeight:1,opacity:history.length===0?0.4:1,boxShadow:"0 1px 3px rgba(0,0,0,0.15)"}}>↶</button>
       {/* Sterile field — draggable rectangle with label handle + resize handle */}
