@@ -2,12 +2,53 @@ import express from "express";
 import Anthropic from "@anthropic-ai/sdk";
 import { fileURLToPath } from "url";
 import { dirname, join } from "path";
+import { promises as fs } from "fs";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-app.use(express.json());
+app.use(express.json({ limit: "1mb" }));
+
+// ── OR Settings storage (simple file-based, one JSON per OR room) ──
+const OR_SETTINGS_DIR = join(__dirname, "data", "or-settings");
+await fs.mkdir(OR_SETTINGS_DIR, { recursive: true }).catch(() => {});
+
+function sanitizeRoomId(s) { return String(s || "").replace(/[^A-Za-z0-9_-]/g, ""); }
+
+app.get("/api/or-settings/:or", async (req, res) => {
+  const or = sanitizeRoomId(req.params.or);
+  if (!or) return res.status(400).json({ error: "Invalid OR" });
+  const file = join(OR_SETTINGS_DIR, `${or}.json`);
+  try {
+    const raw = await fs.readFile(file, "utf8");
+    res.json(JSON.parse(raw));
+  } catch (e) {
+    if (e.code === "ENOENT") return res.json({ layout: null, presetOverrides: {}, customConfigs: [] });
+    console.error("OR settings read error:", e.message);
+    res.status(500).json({ error: "Read error" });
+  }
+});
+
+app.put("/api/or-settings/:or", async (req, res) => {
+  const or = sanitizeRoomId(req.params.or);
+  if (!or) return res.status(400).json({ error: "Invalid OR" });
+  const file = join(OR_SETTINGS_DIR, `${or}.json`);
+  try {
+    const data = {
+      layout: req.body?.layout || null,
+      presetOverrides: req.body?.presetOverrides || {},
+      customConfigs: req.body?.customConfigs || [],
+      updatedAt: new Date().toISOString(),
+      updatedBy: req.body?.updatedBy || null,
+    };
+    await fs.writeFile(file, JSON.stringify(data, null, 2), "utf8");
+    res.json({ success: true });
+  } catch (e) {
+    console.error("OR settings write error:", e.message);
+    res.status(500).json({ error: "Write error" });
+  }
+});
 app.use(express.static(join(__dirname, "dist")));
 
 // Serve videos with range support for streaming

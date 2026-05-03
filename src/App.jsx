@@ -344,6 +344,118 @@ const OR_LAYOUT_DEFAULTS={
   bed:{cx:47.5,cy:50,w:21,h:48},
   bedAngle:0,
 };
+// ── 5 pre-made OR Map configurations ──
+const OR_PRESETS=[
+  {
+    id:"general",name:"General Surgery",icon:"🏥",
+    desc:"Supine patient, surgeon on operative side, anesthesia at head; back table on the right wall, mayo near surgeon. Common for general / open abdominal cases.",
+    layout:{
+      m:{l:60,t:66,w:12,h:18,angle:0},
+      b:{l:75,t:8,w:22,h:60,angle:0},
+      d:{l:75,t:73,w:18,h:22,angle:0},
+      sf:{l:16,t:5,w:60,h:78,angle:0},
+      doors:[{l:1,t:18,wall:"left"},{l:1,t:70,wall:"left"}],
+      srg:{l:62,t:50},ast:{l:32,t:50},pa:{l:42,t:60},scr:{l:47,t:18},cir:{l:12,t:88},
+      emr:{l:2,t:70,w:12,h:16,angle:0},
+      bed:{cx:47.5,cy:50,w:21,h:48},bedAngle:0,
+    },
+  },
+  {
+    id:"orthopedic",name:"Orthopedic (THA / Lateral)",icon:"🦴",
+    desc:"Lateral decubitus position for total hip / shoulder; bed rotated 90°, large back table for implant trays, mayo close to surgeon, fluoro space near foot.",
+    layout:{
+      m:{l:54,t:35,w:14,h:14,angle:0},
+      b:{l:6,t:6,w:30,h:24,angle:0},
+      d:{l:78,t:78,w:18,h:18,angle:0},
+      sf:{l:14,t:24,w:70,h:54,angle:0},
+      doors:[{l:1,t:50,wall:"left"},{l:90,t:50,wall:"right"}],
+      srg:{l:50,t:25},ast:{l:50,t:75},pa:{l:32,t:30},scr:{l:78,t:50},cir:{l:8,t:65},
+      emr:{l:2,t:78,w:12,h:16,angle:0},
+      bed:{cx:50,cy:50,w:21,h:48},bedAngle:90,
+    },
+  },
+  {
+    id:"cardiac",name:"Cardiac / CABG",icon:"❤",
+    desc:"Centrally placed bed for full thoracic access; perfusion equipment on left, larger sterile field, multiple anesthesia lines at head, additional staff space.",
+    layout:{
+      m:{l:62,t:42,w:13,h:20,angle:0},
+      b:{l:78,t:20,w:18,h:55,angle:0},
+      d:{l:78,t:78,w:18,h:18,angle:0},
+      sf:{l:18,t:6,w:60,h:82,angle:0},
+      doors:[{l:1,t:30,wall:"left"},{l:1,t:65,wall:"left"}],
+      srg:{l:62,t:50},ast:{l:32,t:50},pa:{l:42,t:60},scr:{l:48,t:78},cir:{l:6,t:80},
+      emr:{l:2,t:6,w:13,h:18,angle:0},
+      bed:{cx:47.5,cy:50,w:22,h:55},bedAngle:0,
+    },
+  },
+  {
+    id:"robotic",name:"Robotic (Da Vinci)",icon:"🤖",
+    desc:"Patient cart docks at the patient's side; bed slightly tilted to the bed-side cart, console placed away from sterile field, monitors at multiple corners.",
+    layout:{
+      m:{l:30,t:14,w:12,h:14,angle:0},
+      b:{l:6,t:8,w:18,h:32,angle:0},
+      d:{l:6,t:78,w:14,h:18,angle:0},
+      sf:{l:20,t:14,w:55,h:65,angle:0},
+      doors:[{l:1,t:50,wall:"left"},{l:90,t:50,wall:"right"}],
+      srg:{l:64,t:30},ast:{l:64,t:70},pa:{l:80,t:50},scr:{l:48,t:18},cir:{l:88,t:18},
+      emr:{l:84,t:78,w:14,h:18,angle:0},
+      bed:{cx:48,cy:50,w:21,h:48},bedAngle:30,
+    },
+  },
+  {
+    id:"laparoscopy",name:"Laparoscopy / MIS",icon:"📹",
+    desc:"Supine patient with monitors at head and foot of bed; small mayo, standard back table, primary surgeon and assistant flanking patient.",
+    layout:{
+      m:{l:62,t:55,w:11,h:14,angle:0},
+      b:{l:78,t:10,w:18,h:55,angle:0},
+      d:{l:78,t:74,w:18,h:20,angle:0},
+      sf:{l:14,t:6,w:62,h:82,angle:0},
+      doors:[{l:1,t:42,wall:"left"},{l:1,t:74,wall:"left"}],
+      srg:{l:62,t:50},ast:{l:32,t:50},pa:{l:42,t:65},scr:{l:48,t:24},cir:{l:8,t:82},
+      emr:{l:2,t:74,w:12,h:16,angle:0},
+      bed:{cx:47.5,cy:50,w:20,h:50},bedAngle:0,
+    },
+  },
+];
+// ── User-saved custom OR configs (CRUD via localStorage) ──
+function getORConfigs(){
+  try{const s=localStorage.getItem("or_configs_custom_v1");if(s)return JSON.parse(s);}catch{}
+  return [];
+}
+function setORConfigs(arr){
+  try{localStorage.setItem("or_configs_custom_v1",JSON.stringify(arr));}catch{}
+  __orConfigsSubs.forEach(fn=>fn(arr));
+}
+const __orConfigsSubs=new Set();
+// ── Per-hospital overrides for the 5 presets (admin can customize them) ──
+function getORPresetOverrides(){
+  try{const s=localStorage.getItem("or_preset_overrides_v1");if(s)return JSON.parse(s);}catch{}
+  return {};
+}
+function setORPresetOverrides(obj){
+  try{localStorage.setItem("or_preset_overrides_v1",JSON.stringify(obj));}catch{}
+  __orPresetOverrideSubs.forEach(fn=>fn(obj));
+}
+const __orPresetOverrideSubs=new Set();
+// ── Alerts config (per-OR) ──
+const DEFAULT_ALERTS=[
+  {name:"Item Drop Detection",sev:"critical",en:true},
+  {name:"Count Mismatch",sev:"critical",en:true},
+  {name:"Staff Zone Breach",sev:"high",en:true},
+  {name:"Time Out Incomplete",sev:"critical",en:true},
+  {name:"Mid-Case Tray",sev:"medium",en:true},
+  {name:"Camera Occlusion",sev:"medium",en:true},
+  {name:"Idle Warning",sev:"low",en:false},
+  {name:"Turnover Exceeded",sev:"low",en:true},
+];
+function getORAlerts(){try{const s=localStorage.getItem("or_alerts_v1");if(s)return JSON.parse(s);}catch{}return DEFAULT_ALERTS;}
+function setORAlerts(arr){try{localStorage.setItem("or_alerts_v1",JSON.stringify(arr));}catch{}__orAlertsSubs.forEach(fn=>fn(arr));}
+const __orAlertsSubs=new Set();
+// ── Recording config (per-OR) ──
+const DEFAULT_RECORDING={recV:true,recA:true};
+function getORRecording(){try{const s=localStorage.getItem("or_recording_v1");if(s)return JSON.parse(s);}catch{}return DEFAULT_RECORDING;}
+function setORRecording(obj){try{localStorage.setItem("or_recording_v1",JSON.stringify(obj));}catch{}__orRecordingSubs.forEach(fn=>fn(obj));}
+const __orRecordingSubs=new Set();
 let __orLayoutCache=null;
 const __orLayoutSubs=new Set();
 function getORLayout(){
@@ -364,6 +476,62 @@ if(typeof window!=="undefined"&&!window.__orLayoutStorageBound){
     }
   });
 }
+
+// ── Server sync — pushes/pulls OR settings to /api/or-settings/:room ──
+let __orSyncRoom=null;
+let __orSyncTimeout=null;
+let __orSyncSuppressPush=false;
+let __orSyncUser=null;
+async function initORServerSync(roomId,userEmail){
+  __orSyncRoom=roomId||null;
+  __orSyncUser=userEmail||null;
+  if(!roomId)return;
+  __orSyncSuppressPush=true;
+  try{
+    const res=await fetch(`/api/or-settings/${encodeURIComponent(roomId)}`);
+    if(res.ok){
+      const data=await res.json();
+      if(data.layout){
+        __orLayoutCache={...OR_LAYOUT_DEFAULTS,...data.layout};
+        try{localStorage.setItem("or_layout_v3",JSON.stringify(__orLayoutCache));}catch{}
+        __orLayoutSubs.forEach(fn=>fn(__orLayoutCache));
+      }
+      if(data.presetOverrides){
+        try{localStorage.setItem("or_preset_overrides_v1",JSON.stringify(data.presetOverrides));}catch{}
+        __orPresetOverrideSubs.forEach(fn=>fn(data.presetOverrides));
+      }
+      if(data.customConfigs){
+        try{localStorage.setItem("or_configs_custom_v1",JSON.stringify(data.customConfigs));}catch{}
+        __orConfigsSubs.forEach(fn=>fn(data.customConfigs));
+      }
+      if(data.alerts){
+        try{localStorage.setItem("or_alerts_v1",JSON.stringify(data.alerts));}catch{}
+        __orAlertsSubs.forEach(fn=>fn(data.alerts));
+      }
+      if(data.recording){
+        try{localStorage.setItem("or_recording_v1",JSON.stringify(data.recording));}catch{}
+        __orRecordingSubs.forEach(fn=>fn(data.recording));
+      }
+    }
+  }catch(e){console.warn("[OR sync] fetch failed:",e.message);}
+  setTimeout(()=>{__orSyncSuppressPush=false;},150);
+}
+function teardownORServerSync(){__orSyncRoom=null;__orSyncUser=null;if(__orSyncTimeout){clearTimeout(__orSyncTimeout);__orSyncTimeout=null;}}
+function pushORSettingsToServer(){
+  if(!__orSyncRoom||__orSyncSuppressPush)return;
+  if(__orSyncTimeout)clearTimeout(__orSyncTimeout);
+  __orSyncTimeout=setTimeout(async()=>{
+    try{
+      const body={layout:__orLayoutCache||OR_LAYOUT_DEFAULTS,presetOverrides:getORPresetOverrides(),customConfigs:getORConfigs(),alerts:getORAlerts(),recording:getORRecording(),updatedBy:__orSyncUser};
+      await fetch(`/api/or-settings/${encodeURIComponent(__orSyncRoom)}`,{method:"PUT",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)});
+    }catch(e){console.warn("[OR sync] push failed:",e.message);}
+  },800);
+}
+__orLayoutSubs.add(pushORSettingsToServer);
+__orPresetOverrideSubs.add(pushORSettingsToServer);
+__orConfigsSubs.add(pushORSettingsToServer);
+__orAlertsSubs.add(pushORSettingsToServer);
+__orRecordingSubs.add(pushORSettingsToServer);
 
 // ── OR Zone Map with floating tooltip ──
 function ORZoneMap({T,items,height=180}) {
@@ -1526,15 +1694,127 @@ function AudioMeter({T,active}){const [levels,setLevels]=useState(Array(16).fill
   return(<div style={{display:"flex",gap:2,alignItems:"flex-end",height:50}}>{levels.map((lv,i)=>(<div key={i} style={{width:5,borderRadius:2,transition:"height .1s",height:`${Math.max(active?lv:8,5)}%`,background:lv>75?T.red:lv>45?T.amber:T.green,opacity:active?1:.15}}/>))}</div>);
 }
 
+// Small SVG preview of an OR layout
+function LayoutPreview({layout,T,w=120,h=80}){
+  const isDark=T.n==="dark";
+  const px=(v,axis)=>(v/100)*(axis==="x"?w:h);
+  const safeRect=(e,fill,stroke,key)=>{if(!e||e.w==null||e.h==null)return null;const cx=px(e.l+e.w/2,"x"),cy=px(e.t+e.h/2,"y");return(<rect key={key} x={px(e.l,"x")} y={px(e.t,"y")} width={px(e.w,"x")} height={px(e.h,"y")} transform={e.angle?`rotate(${e.angle} ${cx} ${cy})`:undefined} fill={fill} stroke={stroke} strokeWidth="0.6"/>);};
+  const bed=layout.bed;
+  return(
+    <svg width={w} height={h} viewBox={`0 0 ${w} ${h}`} style={{borderRadius:3,background:isDark?"#0a0f14":"#eef2f6",border:`1px solid ${T.border}`,flexShrink:0}}>
+      {/* walls */}
+      <rect x={0.5} y={0.5} width={w-1} height={h-1} fill="none" stroke={T.muted} strokeWidth="0.6"/>
+      {/* sterile field — dashed */}
+      {layout.sf&&(()=>{const e=layout.sf;const cx=px(e.l+e.w/2,"x"),cy=px(e.t+e.h/2,"y");return(<rect x={px(e.l,"x")} y={px(e.t,"y")} width={px(e.w,"x")} height={px(e.h,"y")} transform={e.angle?`rotate(${e.angle} ${cx} ${cy})`:undefined} fill="none" stroke={T.teal} strokeWidth="0.5" strokeDasharray="2 1.2" opacity="0.7"/>);})()}
+      {/* bed + anesthesia silhouette */}
+      {bed&&(()=>{const bx=px(bed.cx-bed.w/2,"x"),by=px(bed.cy-bed.h/2,"y");const bw=px(bed.w,"x"),bh=px(bed.h,"y");const cx=px(bed.cx,"x"),cy=px(bed.cy,"y");return(<g transform={`rotate(${layout.bedAngle||0} ${cx} ${cy})`}>
+        <rect x={bx} y={by} width={bw} height={bh} fill={T.purple+"33"} stroke={T.purple} strokeWidth="0.8" rx="1"/>
+        <rect x={bx+bw*0.05} y={by+bh+1} width={bw*0.9} height={Math.max(4,bh*0.18)} fill={T.cyan+"33"} stroke={T.cyan} strokeWidth="0.5" rx="0.5"/>
+      </g>);})()}
+      {/* zones */}
+      {safeRect(layout.m,T.green+"33",T.green,"m")}
+      {safeRect(layout.b,T.blue+"33",T.blue,"b")}
+      {safeRect(layout.d,T.amber+"33",T.amber,"d")}
+      {/* EMR */}
+      {layout.emr&&safeRect(layout.emr,T.muted+"33",T.muted,"emr")}
+      {/* doors */}
+      {(layout.doors||[]).map((d,i)=><rect key={`door-${i}`} x={px(d.l,"x")-0.5} y={px(d.t,"y")-0.5} width={Math.max(3,px(8,"x"))} height={Math.max(3,px(6,"y"))} fill={T.muted+"55"} stroke={T.muted} strokeWidth="0.4"/>)}
+      {/* staff dots */}
+      {["srg","ast","pa","scr","cir"].map(k=>layout[k]&&(<circle key={k} cx={px(layout[k].l,"x")} cy={px(layout[k].t,"y")} r="1.6" fill={T.cyan} stroke={isDark?"#0a0f14":"#fff"} strokeWidth="0.4"/>))}
+    </svg>
+  );
+}
+
 function SettingsScreen({T}){
-  const [viewCam,setViewCam]=useState(null);const [listenMic,setListenMic]=useState(null);const [recV,setRecV]=useState(true);const [recA,setRecA]=useState(true);const [ptzLog,setPtzLog]=useState([]);const [sync,setSync]=useState(96.8);
+  const [viewCam,setViewCam]=useState(null);const [listenMic,setListenMic]=useState(null);const [ptzLog,setPtzLog]=useState([]);const [sync,setSync]=useState(96.8);
+  // Per-OR synced stores
+  const [recording,setRecording]=useState(getORRecording);
+  useEffect(()=>{const fn=o=>setRecording(o);__orRecordingSubs.add(fn);return()=>__orRecordingSubs.delete(fn);},[]);
+  const recV=recording.recV,recA=recording.recA;
+  const setRecV=(v)=>setORRecording({...recording,recV:typeof v==="function"?v(recV):v});
+  const setRecA=(v)=>setORRecording({...recording,recA:typeof v==="function"?v(recA):v});
+  const [alerts,setAlerts]=useState(getORAlerts);
+  useEffect(()=>{const fn=arr=>setAlerts(arr);__orAlertsSubs.add(fn);return()=>__orAlertsSubs.delete(fn);},[]);
+  const toggleAlert=(i)=>setORAlerts(alerts.map((a,idx)=>idx===i?{...a,en:!a.en}:a));
+  const cycleAlertSev=(i)=>{const order=["low","medium","high","critical"];setORAlerts(alerts.map((a,idx)=>idx===i?{...a,sev:order[(order.indexOf(a.sev)+1)%4]}:a));};
   useEffect(()=>{const t=setInterval(()=>setSync(p=>Math.min(p+.1+Math.random()*.15,99.9)),2000);return()=>clearInterval(t);},[]);
   const handlePTZ=useCallback((dir)=>{setPtzLog(p=>[{t:new Date().toLocaleTimeString(),cam:viewCam,dir},...p].slice(0,8));},[viewCam]);
   const cams=CAMERAS.map(c=>({id:c.id,name:c.name,ip:`192.168.1.${100+c.id}`,res:c.res,fps:c.fps,zone:c.zone,ptz:c.ptz}));
   const mics=[{id:1,name:"Ceiling Array",mode:"Ambient+Voice"},{id:2,name:"Surgeon Lapel",mode:"Directional"}];
+  // OR Map config state
+  const [customConfigs,setCustomConfigs]=useState(getORConfigs);
+  useEffect(()=>{const fn=arr=>setCustomConfigs(arr);__orConfigsSubs.add(fn);return()=>__orConfigsSubs.delete(fn);},[]);
+  // Per-hospital preset overrides (admin can edit the 5 factory presets)
+  const [presetOverrides,setPresetOverridesState]=useState(getORPresetOverrides);
+  useEffect(()=>{const fn=o=>setPresetOverridesState(o);__orPresetOverrideSubs.add(fn);return()=>__orPresetOverrideSubs.delete(fn);},[]);
+  const effectivePresetLayout=(p)=>presetOverrides[p.id]?{...p.layout,...presetOverrides[p.id]}:p.layout;
+  const savePresetOverride=(p)=>{if(!confirm(`Save the current OR-map arrangement as your hospital's default for "${p.name}"? You can reset to the factory layout anytime.`))return;setORPresetOverrides({...presetOverrides,[p.id]:getORLayout()});};
+  const resetPresetOverride=(p)=>{if(!confirm(`Reset "${p.name}" to the factory default layout?`))return;const next={...presetOverrides};delete next[p.id];setORPresetOverrides(next);};
+  const [viewing,setViewing]=useState(null); // {layout,name,desc,icon,kind:"preset"|"custom",entry}
+  const applyLayout=(layout)=>{setORLayout({...OR_LAYOUT_DEFAULTS,...layout});};
+  const duplicateAsCustom=(p)=>{const name=prompt("Name for the new layout:",p.name+" (copy)");if(!name)return;setORConfigs([...customConfigs,{id:String(Date.now()),name,layout:effectivePresetLayout(p)}]);};
+  const saveCurrentAsCustom=()=>{const name=prompt("Name for this saved layout:","");if(!name)return;setORConfigs([...customConfigs,{id:String(Date.now()),name,layout:getORLayout()}]);};
+  const renameCustom=(id)=>{const c=customConfigs.find(x=>x.id===id);if(!c)return;const name=prompt("Rename layout:",c.name);if(!name)return;setORConfigs(customConfigs.map(x=>x.id===id?{...x,name}:x));};
+  const updateCustom=(id)=>{if(!confirm("Save the current OR-map arrangement into this layout? This overwrites the saved version."))return;setORConfigs(customConfigs.map(x=>x.id===id?{...x,layout:getORLayout()}:x));};
+  const deleteCustom=(id)=>{if(!confirm("Delete this saved layout?"))return;setORConfigs(customConfigs.filter(x=>x.id!==id));};
+  const btn=(color,onClick,label,extra={})=>(<button onClick={onClick} style={{padding:"4px 9px",borderRadius:3,fontSize:10,fontFamily:MO,fontWeight:700,background:color+"15",color:color,border:`1px solid ${color}55`,cursor:"pointer",WebkitAppearance:"none",appearance:"none",letterSpacing:0.4,...extra}}>{label}</button>);
+  const [tab,setTab]=useState("ormap");
+  const TABS=[{k:"ormap",l:"🏛 OR Map"},{k:"cameras",l:"📷 Cameras"},{k:"audio",l:"🎙 Audio & Alerts"},{k:"recording",l:"☁ Recording"}];
 
   return(<div style={{display:"flex",flexDirection:"column",gap:14,height:"100%",minHeight:0}}>
-    <div style={{display:"flex",flexDirection:"column",gap:8,minHeight:0,overflow:"hidden"}}>
+    {/* Tab navigation */}
+    <div style={{display:"flex",gap:0,flexShrink:0,borderBottom:`2px solid ${T.border}`,marginBottom:-4}}>
+      {TABS.map(t=>(<div key={t.k} onClick={()=>setTab(t.k)} style={{padding:"10px 18px",cursor:"pointer",fontSize:13,fontFamily:MO,fontWeight:tab===t.k?700:500,color:tab===t.k?T.teal:T.muted,borderBottom:tab===t.k?`3px solid ${T.teal}`:"3px solid transparent",marginBottom:-2,letterSpacing:0.5}}>{t.l}</div>))}
+    </div>
+    {/* OR Map tab */}
+    {tab==="ormap"&&<Cd T={T} style={{padding:12,flexShrink:0}}>
+      <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:8}}>
+        <Lb T={T}>🏛 OR Map Configuration</Lb>
+        {btn(T.teal,saveCurrentAsCustom,"+ SAVE CURRENT")}
+      </div>
+      <div style={{fontSize:10,fontFamily:MO,color:T.muted,marginBottom:6,letterSpacing:1,textTransform:"uppercase"}}>Pre-made ({OR_PRESETS.length})</div>
+      {OR_PRESETS.map(p=>{const customized=!!presetOverrides[p.id];const eff=effectivePresetLayout(p);const openEditor=()=>{const snap=getORLayout();applyLayout(eff);setViewing({layout:eff,name:p.name,desc:p.desc,icon:p.icon,kind:"preset",entry:p,customized,snapshot:snap});};return(
+        <div key={p.id} style={{padding:8,marginBottom:6,borderRadius:3,background:T.card2,border:`1px solid ${customized?T.amber+"66":T.border}`}}>
+          <div style={{display:"flex",alignItems:"flex-start",gap:8}}>
+            <div onClick={openEditor} style={{cursor:"pointer"}} title="Click to edit this layout">
+              <LayoutPreview layout={{...OR_LAYOUT_DEFAULTS,...eff}} T={T} w={120} h={80}/>
+            </div>
+            <div style={{flex:1,minWidth:0}}>
+              <div style={{fontSize:13,fontWeight:700,color:T.text,fontFamily:SA}}>{p.icon} {p.name}{customized&&<span style={{fontSize:9,color:T.amber,fontFamily:MO,fontWeight:700,marginLeft:6,padding:"1px 5px",border:`1px solid ${T.amber}55`,borderRadius:2}}>CUSTOMIZED</span>}</div>
+              <div style={{fontSize:11,color:T.muted,marginTop:3,lineHeight:1.35}}>{p.desc}</div>
+            </div>
+            <div style={{display:"flex",flexDirection:"column",gap:4,flexShrink:0,minWidth:90}}>
+              {btn(T.teal,()=>applyLayout(eff),"APPLY")}
+              {btn(T.amber,openEditor,"✏ EDIT")}
+              {customized&&btn(T.muted,()=>resetPresetOverride(p),"RESET")}
+              {btn(T.muted,()=>duplicateAsCustom(p),"DUPLICATE")}
+            </div>
+          </div>
+        </div>
+      );})}
+      <div style={{fontSize:10,fontFamily:MO,color:T.muted,marginTop:10,marginBottom:6,letterSpacing:1,textTransform:"uppercase"}}>Custom ({customConfigs.length})</div>
+      {customConfigs.length===0?<div style={{fontSize:11,color:T.muted,fontStyle:"italic",padding:"6px 8px"}}>No saved layouts yet. Apply + edit a preset, then click DUPLICATE — or save your current arrangement.</div>:customConfigs.map(c=>{const openEditor=()=>{const snap=getORLayout();applyLayout(c.layout);setViewing({layout:c.layout,name:c.name,desc:"",icon:"📋",kind:"custom",entry:c,snapshot:snap});};return(
+        <div key={c.id} style={{padding:8,marginBottom:6,borderRadius:3,background:T.card2,border:`1px solid ${T.border}`}}>
+          <div style={{display:"flex",alignItems:"flex-start",gap:8}}>
+            <div onClick={openEditor} style={{cursor:"pointer"}} title="Click to edit this layout">
+              <LayoutPreview layout={{...OR_LAYOUT_DEFAULTS,...c.layout}} T={T} w={120} h={80}/>
+            </div>
+            <div style={{flex:1,minWidth:0}}>
+              <div style={{fontSize:13,fontWeight:700,color:T.text,fontFamily:SA}}>📋 {c.name}</div>
+              <div style={{fontSize:10,color:T.muted,marginTop:3,fontStyle:"italic",lineHeight:1.35}}>Click preview or EDIT to open the in-place editor.</div>
+            </div>
+            <div style={{display:"flex",flexDirection:"column",gap:4,flexShrink:0,minWidth:90}}>
+              {btn(T.teal,()=>applyLayout(c.layout),"APPLY")}
+              {btn(T.amber,openEditor,"✏ EDIT")}
+              {btn(T.muted,()=>renameCustom(c.id),"RENAME")}
+              {btn(T.red,()=>deleteCustom(c.id),"DELETE")}
+            </div>
+          </div>
+        </div>
+      );})}
+    </Cd>}
+    {/* Cameras tab */}
+    {tab==="cameras"&&<div style={{display:"flex",flexDirection:"column",gap:8,minHeight:0,overflow:"hidden"}}>
       <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",flexShrink:0}}><Lb T={T}>📷 Cameras</Lb><P color={T.green} T={T} small>4/4</P></div>
       <div style={{flex:1,overflowY:"auto",minHeight:0}}>{cams.map(cam=>{const v=viewCam===cam.id;return(<div key={cam.id} style={{padding:12,marginBottom:10,borderRadius:3,background:T.card,border:`1px solid ${v?T.teal+"55":T.border}`}}>
         <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:v?10:0}}><div style={{display:"flex",alignItems:"center",gap:10}}><Dot color={T.green} size={7}/><div><div style={{fontSize:16,fontWeight:700,color:T.text,fontFamily:SA}}>{cam.name}</div><div style={{fontSize:12,fontFamily:MO,color:T.muted}}>CAM-{cam.id} · {cam.ip} · {cam.res}@{cam.fps}fps</div></div></div>
@@ -1542,8 +1822,9 @@ function SettingsScreen({T}){
         {v&&<div style={{display:"flex",gap:12}}><div style={{flex:1,height:200,borderRadius:3,overflow:"hidden"}}><VideoFeed T={T} cam={cam} isViewing={true}/></div><PTZControl T={T} onMove={handlePTZ} hasPTZ={cam.ptz}/></div>}
       </div>);})}</div>
       {ptzLog.length>0&&<Cd T={T} style={{padding:10,flexShrink:0,maxHeight:100,overflow:"hidden"}}><Lb T={T}>PTZ Log</Lb><div style={{flex:1,overflowY:"auto",minHeight:0}}>{ptzLog.map((p,i)=>(<div key={i} style={{display:"flex",gap:8,padding:"2px 0",fontSize:13,fontFamily:MO}}><span style={{color:T.muted}}>{p.t}</span><span style={{color:T.teal}}>CAM-{p.cam}</span><span style={{color:T.soft,fontWeight:600}}>{p.dir}</span></div>))}</div></Cd>}
-    </div>
-    <div style={{display:"flex",flexDirection:"column",gap:10,minHeight:0,overflow:"hidden"}}>
+    </div>}
+    {/* Audio + Alerts tab */}
+    {tab==="audio"&&<div style={{display:"flex",flexDirection:"column",gap:10,minHeight:0,overflow:"hidden"}}>
       <Cd T={T} style={{padding:14,flexShrink:0}}><div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:10}}><Lb T={T}>🎙 Microphones</Lb><P color={T.green} T={T} small>2/2</P></div>
         {mics.map(mic=>{const li=listenMic===mic.id;return(<div key={mic.id} style={{padding:14,marginBottom:10,borderRadius:3,background:T.card2,border:`1px solid ${li?T.purple+"55":T.border}`}}>
           <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:12}}><div style={{display:"flex",alignItems:"center",gap:10}}><Dot color={T.green} size={7}/><div><div style={{fontSize:17,fontWeight:700,color:T.text,fontFamily:SA}}>{mic.name}</div><div style={{fontSize:12,fontFamily:MO,color:T.muted}}>MIC-{mic.id} · {mic.mode}</div></div></div>
@@ -1552,11 +1833,12 @@ function SettingsScreen({T}){
           {li&&<div style={{marginTop:10,padding:"8px 10px",borderRadius:3,background:T.purple+"08",border:`1px solid ${T.purple}18`,display:"flex",alignItems:"center",gap:8}}><Dot color={T.purple} size={6}/><span style={{fontSize:13,fontFamily:MO,color:T.purple}}>Monitoring · 45ms latency</span></div>}
         </div>);})}
       </Cd>
-      <Cd T={T} style={{flex:1,padding:14,minHeight:0,overflow:"hidden"}}><Lb T={T}>Alerts</Lb><div style={{flex:1,overflowY:"auto",minHeight:0}}>{[{name:"Item Drop Detection",sev:"critical",en:true},{name:"Count Mismatch",sev:"critical",en:true},{name:"Staff Zone Breach",sev:"high",en:true},{name:"Time Out Incomplete",sev:"critical",en:true},{name:"Mid-Case Tray",sev:"medium",en:true},{name:"Camera Occlusion",sev:"medium",en:true},{name:"Idle Warning",sev:"low",en:false},{name:"Turnover Exceeded",sev:"low",en:true}].map((al,i)=>{const sc=al.sev==="critical"?T.red:al.sev==="high"?T.orange:al.sev==="medium"?T.amber:T.muted;return(<div key={i} style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"8px 0",borderBottom:`1px solid ${T.border}`,opacity:al.en?1:.4}}><div style={{display:"flex",alignItems:"center",gap:8}}><div style={{width:8,height:8,borderRadius:4,background:al.en?sc:T.faint}}/><span style={{fontSize:15,fontFamily:SA,color:T.text}}>{al.name}</span></div><P color={sc} T={T} small filled={al.en}>{al.sev}</P></div>);})}</div>
-        <div style={{flexShrink:0,marginTop:8,paddingTop:10,borderTop:`1px solid ${T.border}`,display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8}}>{[{l:"AI",v:"Tracki© v1.0.5"},{l:"CV",v:"YOLO-Surg v8"},{l:"NLU",v:"Tracki© v2.1"}].map((s,i)=>(<div key={i}><div style={{fontSize:10,fontFamily:MO,color:T.muted,textTransform:"uppercase"}}>{s.l}</div><div style={{fontSize:14,fontWeight:600,fontFamily:MO,color:T.teal,marginTop:2}}>{s.v}</div></div>))}</div>
+      <Cd T={T} style={{flex:1,padding:14,minHeight:0,overflow:"hidden"}}><div style={{display:"flex",justifyContent:"space-between",marginBottom:6,flexShrink:0}}><Lb T={T}>Alerts</Lb><span style={{fontSize:10,color:T.muted,fontFamily:MO,fontStyle:"italic"}}>Click severity to cycle · toggle to enable</span></div><div style={{flex:1,overflowY:"auto",minHeight:0}}>{alerts.map((al,i)=>{const sc=al.sev==="critical"?T.red:al.sev==="high"?T.orange:al.sev==="medium"?T.amber:T.muted;return(<div key={i} style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"8px 0",borderBottom:`1px solid ${T.border}`,opacity:al.en?1:.4}}><div style={{display:"flex",alignItems:"center",gap:8,flex:1}}><div style={{width:8,height:8,borderRadius:4,background:al.en?sc:T.faint}}/><span style={{fontSize:15,fontFamily:SA,color:T.text}}>{al.name}</span></div><div style={{display:"flex",alignItems:"center",gap:8}}><div onClick={()=>cycleAlertSev(i)} style={{cursor:"pointer"}} title="Click to change severity"><P color={sc} T={T} small filled={al.en}>{al.sev}</P></div><Toggle on={al.en} onClick={()=>toggleAlert(i)} color={sc} T={T}/></div></div>);})}</div>
+        <div style={{flexShrink:0,marginTop:8,paddingTop:10,borderTop:`1px solid ${T.border}`,display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8}}>{[{l:"AI",v:"Tracki© v1.0.6"},{l:"CV",v:"YOLO-Surg v8"},{l:"NLU",v:"Tracki© v2.1"}].map((s,i)=>(<div key={i}><div style={{fontSize:10,fontFamily:MO,color:T.muted,textTransform:"uppercase"}}>{s.l}</div><div style={{fontSize:14,fontWeight:600,fontFamily:MO,color:T.teal,marginTop:2}}>{s.v}</div></div>))}</div>
       </Cd>
-    </div>
-    <div style={{display:"flex",flexDirection:"column",gap:10,minHeight:0,overflow:"hidden"}}>
+    </div>}
+    {/* Recording tab */}
+    {tab==="recording"&&<div style={{display:"flex",flexDirection:"column",gap:10,minHeight:0,overflow:"hidden"}}>
       <Cd T={T} style={{padding:14,flexShrink:0}}><Lb T={T}>☁ Cloud Recording</Lb><div style={{display:"flex",alignItems:"center",gap:10,marginBottom:12}}><div style={{width:40,height:40,borderRadius:3,background:T.green+"12",display:"flex",alignItems:"center",justifyContent:"center"}}><span style={{fontSize:20}}>☁</span></div><div><div style={{fontSize:16,fontWeight:700,color:T.green}}>Connected</div><div style={{fontSize:12,fontFamily:MO,color:T.muted}}>AWS S3 · eu-west-1</div></div></div>
         <div style={{padding:10,borderRadius:3,background:T.card2,border:`1px solid ${T.border}`,marginBottom:12}}><div style={{fontSize:10,fontFamily:MO,color:T.muted,textTransform:"uppercase"}}>Bucket</div><div style={{fontSize:13,fontFamily:MO,color:T.teal,marginTop:3,wordBreak:"break-all"}}>s3://trackimed-or1-sheba/</div></div>
         <div style={{display:"flex",gap:12}}><div style={{flex:1}}><div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:4}}><span style={{fontSize:14,fontFamily:SA,color:T.text}}>📹 Video</span><Toggle on={recV} onClick={()=>setRecV(r=>!r)} color={T.red} T={T}/></div></div><div style={{flex:1}}><div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:4}}><span style={{fontSize:14,fontFamily:SA,color:T.text}}>🎙 Audio</span><Toggle on={recA} onClick={()=>setRecA(r=>!r)} color={T.red} T={T}/></div></div></div>
@@ -1568,7 +1850,31 @@ function SettingsScreen({T}){
         <div style={{background:T.card2,borderRadius:2,height:8,overflow:"hidden"}}><div style={{height:"100%",borderRadius:2,width:`${sync}%`,background:T.teal,transition:"width .5s"}}/></div>
         <div style={{fontSize:11,fontFamily:MO,color:T.muted,marginTop:4}}>{sync.toFixed(1)}% synced · 🔒 AES-256 + TLS 1.3</div>
       </Cd>
-    </div>
+    </div>}
+    {/* In-place editor modal — full OR Map editor for the selected preset/custom */}
+    {viewing&&<div onClick={()=>{setORLayout(viewing.snapshot);setViewing(null);}} style={{position:"fixed",inset:0,zIndex:10300,background:"rgba(0,0,0,0.65)",display:"flex",alignItems:"center",justifyContent:"center",padding:16}}>
+      <div onClick={e=>e.stopPropagation()} style={{background:T.panel,border:`2px solid ${T.border}`,borderRadius:6,width:"min(1100px, 96vw)",height:"min(760px, 92vh)",display:"flex",flexDirection:"column",boxShadow:"0 10px 40px rgba(0,0,0,0.6)"}}>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",padding:"14px 16px",borderBottom:`2px solid ${T.border}`,gap:12,flexShrink:0,background:T.card2}}>
+          <div style={{flex:1,minWidth:0}}>
+            <div style={{fontSize:18,fontWeight:800,color:T.text,fontFamily:SA}}>✏ Editing: {viewing.icon||"📋"} {viewing.name}{viewing.customized&&<span style={{fontSize:10,color:T.amber,fontFamily:MO,fontWeight:700,marginLeft:8,padding:"2px 6px",border:`1px solid ${T.amber}55`,borderRadius:2,verticalAlign:"middle"}}>CUSTOMIZED</span>}</div>
+            <div style={{fontSize:11,color:T.muted,marginTop:3}}>Drag, resize, and rotate items inside the OR map. Click SAVE to commit the changes; CANCEL to discard them.</div>
+          </div>
+          <div style={{display:"flex",gap:6,flexShrink:0}}>
+            {viewing.kind==="preset"&&btn(T.amber,()=>{setORPresetOverrides({...presetOverrides,[viewing.entry.id]:getORLayout()});setViewing(null);},"💾 SAVE",{padding:"7px 14px",fontSize:12})}
+            {viewing.kind==="preset"&&viewing.customized&&btn(T.muted,()=>{const next={...presetOverrides};delete next[viewing.entry.id];setORPresetOverrides(next);setORLayout({...OR_LAYOUT_DEFAULTS,...viewing.entry.layout});},"RESET TO FACTORY",{padding:"7px 14px",fontSize:12})}
+            {viewing.kind==="custom"&&btn(T.amber,()=>{setORConfigs(customConfigs.map(x=>x.id===viewing.entry.id?{...x,layout:getORLayout()}:x));setViewing(null);},"💾 SAVE",{padding:"7px 14px",fontSize:12})}
+            {btn(T.muted,()=>{const name=prompt("Save as new layout — name:",viewing.name+" (copy)");if(name)setORConfigs([...customConfigs,{id:String(Date.now()),name,layout:getORLayout()}]);},"SAVE AS NEW",{padding:"7px 14px",fontSize:12})}
+            {btn(T.red,()=>{setORLayout(viewing.snapshot);setViewing(null);},"✕ CANCEL",{padding:"7px 14px",fontSize:12})}
+          </div>
+        </div>
+        <div style={{flex:1,minHeight:0,padding:14,display:"flex",flexDirection:"column"}}>
+          {viewing.desc&&<div style={{fontSize:12,color:T.soft,marginBottom:10,lineHeight:1.4,padding:"8px 10px",background:T.teal+"08",border:`1px solid ${T.teal}22`,borderRadius:3}}>{viewing.desc}</div>}
+          <div style={{flex:1,minHeight:0,position:"relative"}}>
+            <ORZoneMap T={T} items={[]} height="100%"/>
+          </div>
+        </div>
+      </div>
+    </div>}
   </div>);
 }
 
@@ -1844,8 +2150,10 @@ export default function App() {
   // Secondary = not part of running surgery
   const isSurgeryTab = surgeryTabs.some(t=>t.k===screen);
 
-  const handleLogin=(u)=>{setUser(u);localStorage.setItem("orking_user",JSON.stringify(u));};
-  const handleLogout=()=>{setUser(null);localStorage.removeItem("orking_user");};
+  const handleLogin=(u)=>{setUser(u);localStorage.setItem("orking_user",JSON.stringify(u));initORServerSync(u.or,u.email);};
+  const handleLogout=()=>{teardownORServerSync();setUser(null);localStorage.removeItem("orking_user");};
+  // Re-init server sync if user already logged in on app load
+  useEffect(()=>{if(user&&user.or)initORServerSync(user.or,user.email);},[]);
 
   if(!user)return(<><style>{`@keyframes bl{0%,100%{opacity:1}50%{opacity:.3}}*{box-sizing:border-box;}html,body,#root{margin:0;padding:0;overflow:hidden;width:100%;height:100%;}`}</style><Login onLogin={handleLogin}/></>);
 
@@ -1856,7 +2164,7 @@ export default function App() {
         {/* LEFT: Logo + Case info */}
         <img src={T.n==="dark"?"/assets/trackimed-logo-white.png":"/assets/trackimed-logo.png"} alt="TrackiMed" style={{height:28}} onError={(e)=>{e.target.style.display="none";}}/>
         <div style={{borderLeft:`2px solid ${T.border}`,paddingLeft:10,marginLeft:10,marginRight:12}}>
-          <div style={{fontSize:15,fontWeight:700,color:T.text,fontFamily:SA}}>Tracki <span style={{color:T.teal,fontWeight:400,fontSize:10,fontFamily:MO}}>v1.0.5</span> <span style={{color:T.muted,fontWeight:400,fontSize:12,fontFamily:MO}}>{user.or} · {(()=>{const d=new Date(procStart-2071*1000);return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")} ${String(d.getHours()).padStart(2,"0")}:${String(d.getMinutes()).padStart(2,"0")}`;})()}</span></div>
+          <div style={{fontSize:15,fontWeight:700,color:T.text,fontFamily:SA}}>Tracki <span style={{color:T.teal,fontWeight:400,fontSize:10,fontFamily:MO}}>v1.0.6</span> <span style={{color:T.muted,fontWeight:400,fontSize:12,fontFamily:MO}}>{user.or} · {(()=>{const d=new Date(procStart-2071*1000);return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")} ${String(d.getHours()).padStart(2,"0")}:${String(d.getMinutes()).padStart(2,"0")}`;})()}</span></div>
           <div style={{fontSize:12,fontFamily:MO,color:T.muted}}>Case #{PROCEDURE.id} · <span style={{fontWeight:800,color:T.text,fontSize:13,fontFamily:SA}}>{PROCEDURE.type}</span></div>
         </div>
 
@@ -1961,7 +2269,7 @@ export default function App() {
         </div>}
 
         {/* Settings slide-over panel */}
-        {showSettings&&<div style={{position:"absolute",top:0,right:0,bottom:0,width:400,background:T.panel,borderLeft:`2px solid ${T.border}`,zIndex:50,display:"flex",flexDirection:"column"}}>
+        {showSettings&&<div style={{position:"fixed",inset:0,background:T.panel,zIndex:10100,display:"flex",flexDirection:"column",boxShadow:"0 6px 28px rgba(0,0,0,0.45)"}}>
           <div style={{padding:"8px 12px",borderBottom:`2px solid ${T.border}`,display:"flex",alignItems:"center",justifyContent:"space-between",flexShrink:0,background:T.card2}}>
             <span style={{fontSize:12,fontWeight:700,color:T.text,fontFamily:MO,textTransform:"uppercase",letterSpacing:1}}>System Settings</span>
             <div onClick={()=>setShowSettings(false)} style={{padding:"2px 8px",cursor:"pointer",background:T.card,border:`1px solid ${T.border}`,borderRadius:2,fontSize:11,fontFamily:MO,color:T.muted}}>CLOSE</div>
